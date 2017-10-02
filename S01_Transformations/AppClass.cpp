@@ -22,12 +22,15 @@ void Application::Update(void)
 
 	//Is the first person camera active?
 	CameraRotation();
+
+	// Update custom entities here.
 }
 void Application::Display(void)
 {
 	// Clear the screen
 	ClearScreen();
 
+	// Render meshes here:
 	m_pMesh->Render(m_pCameraMngr->GetProjectionMatrix(), m_pCameraMngr->GetViewMatrix(), ToMatrix4(m_qArcBall));
 	m_pMesh1->Render(m_pCameraMngr->GetProjectionMatrix(), m_pCameraMngr->GetViewMatrix(), glm::translate(vector3( 3.0f, 0.0f, 0.0f)));
 		

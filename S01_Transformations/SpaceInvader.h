@@ -19,7 +19,10 @@ private:
 	//-------------------------
 
 	// Cubes in the space invader shape.
-	MyMesh* m_MeshCubes = nullptr; // Set to nullptr in header. // 46 cubes in the space invader shape.	
+	MyMesh* m_MeshCubes = nullptr; // Set to nullptr. // 46 cubes in the space invader shape.	
+
+	// Matrix models for each of the cubes.
+	matrix4* m_m4models = nullptr; // Set to nullptr.
 
 	// Color the boxes in the mesh should be.
 	vector3 m_v3color = Simplex::vector3(1.0f); // Color vector.
@@ -31,7 +34,7 @@ private:
 	bool m_binit = false;
 
 	// Number of meshes.
-	int m_icount; // Number of meshes added to the space invader.
+	unsigned int m_icount; // Number of meshes added to the space invader.
 
 	///////////////////////////
 	// Helper methods.
@@ -81,8 +84,11 @@ public:
 	// Check initialization flag.
 	bool IsInitialized(void);
 
-	// By calling update, 
-	void Update();
+	// Update the SpaceInvader's properties.
+	void Update(void);
+
+	// Add the SpaceInvader's meshes to the render list.
+	void Render(matrix4 p_m4proj, matrix4 p_m4view, matrix4 p_m4model);
 
 	// Safely release data.
 	void Release(void);
