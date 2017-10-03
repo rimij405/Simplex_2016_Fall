@@ -11,13 +11,13 @@ Edited By: Ian Effendi (10/02/2017)
 #include "imgui\ImGuiObject.h"
 
 #include "MyMesh.h"
+#include "SpaceInvader.h"
 
 class Application
 {
-	MyMesh* m_pMesh = nullptr;
-	MyMesh* m_pMesh1 = nullptr;
+	SpaceInvader* m_pSpaceInvader = nullptr;
 
-	String m_sProgrammer = "Alberto Bobadilla - labigm@rit.edu";
+	String m_sProgrammer = "Ian Effendi - iae2784@g.rit.edu";
 private:
 	static ImGuiObject gui; //GUI object
 

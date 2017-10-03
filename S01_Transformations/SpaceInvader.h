@@ -9,6 +9,9 @@
 #define __SPACEINVADER_H_
 
 #include <vector>
+#include <iostream>
+#include <fstream>
+#include <string>
 #include "MyMesh.h"
 
 class SpaceInvader {
@@ -32,27 +35,30 @@ private:
 
 	// Initialization flag.
 	bool m_binit = false;
-
+	
 	// Number of meshes.
-	unsigned int m_icount; // Number of meshes added to the space invader.
+	unsigned int m_uicount; // Number of meshes added to the space invader.
+
+	// Capacity of structure.
+	unsigned int m_uicapacity;
 
 	///////////////////////////
 	// Helper methods.
 	//-------------------------
-	// Initialize the data structures of SpaceInvader.
-	void Init(void);
-
 	// Initialize the meshes.
 	void InitMeshes(void);
 
 	// Add a mesh to the array.
-	void AddMesh(MyMesh* &p_Mesh);
+	// void AddMesh(MyMesh &p_Mesh);
 
 	// Add a mesh to the array while specifying a position.
-	void AddMesh(MyMesh* &p_Mesh, Simplex::vector3 p_v3position);
+	// void AddMesh(MyMesh &p_Mesh, Simplex::vector3 p_v3position);
 
-	// Add a mesh to the array while specifying a position and a scale.
-	void AddMesh(MyMesh* &p_Mesh, Simplex::vector3 p_v3position, float p_fscale);
+	// Check if the file exists.
+	bool IsFile(const std::string& p_rsfilename);
+
+	// Static clock.
+	static sf::Clock k_Clock;
 
 public:
 	
@@ -65,6 +71,9 @@ public:
 	// This constructor takes a color.
 	SpaceInvader(Simplex::vector3 p_v3color); // SpaceInvader constructor.
 
+	// This constructor takes a color and a capacity.
+	SpaceInvader(Simplex::vector3 p_v3color, unsigned int p_uicapacity); // SpaceInvader constructor.
+
 	// Destructor for SpaceInvader.
 	~SpaceInvader(void);
 
@@ -76,11 +85,13 @@ public:
 	
 	// Copy assignment operator.
 	// SpaceInvader& operator=(SpaceInvader const& input);
-
-	
+		
 	///////////////////////////
 	// Service methods.
 	//-------------------------
+	// Initialize the data structures of SpaceInvader.
+	void Init(void);
+
 	// Check initialization flag.
 	bool IsInitialized(void);
 
@@ -92,12 +103,10 @@ public:
 
 	// Safely release data.
 	void Release(void);
-
-	// GoTo sets the position of the local matrix.
-	void GoTo(Simplex::vector3 p_v3position);
-
+	
+	// Add a mesh to the array while specifying a position and a scale.
+	void AddMesh(Simplex::vector3 p_v3position, float p_fscale);
 };
-
 
 #endif //__SPACEINVADER_H_
 

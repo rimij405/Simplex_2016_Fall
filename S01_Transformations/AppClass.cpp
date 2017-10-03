@@ -4,14 +4,14 @@ void Application::InitVariables(void)
 	////Alberto needed this at this position for software recording.
 	//m_pWindow->setPosition(sf::Vector2i(710, 0));
 
-	//Make MyMesh object
-	m_pMesh = new MyMesh();
-	m_pMesh->GenerateCube(2.0f, C_BROWN);
+	// Make SpaceInvader object.
+	m_pSpaceInvader = new SpaceInvader(C_PURPLE, 46);
+	
+	// Craft the boxes in the SpaceInvader.
+	m_pSpaceInvader->Init();
 
-	//Make MyMesh object
-	m_pMesh1 = new MyMesh();
-	m_pMesh1->GenerateCube(1.0f, C_WHITE);
 }
+
 void Application::Update(void)
 {
 	//Update the system so it knows how much time has passed since the last call
@@ -24,6 +24,8 @@ void Application::Update(void)
 	CameraRotation();
 
 	// Update custom entities here.
+	m_pSpaceInvader->Update();
+
 }
 void Application::Display(void)
 {
@@ -31,9 +33,8 @@ void Application::Display(void)
 	ClearScreen();
 
 	// Render meshes here:
-	m_pMesh->Render(m_pCameraMngr->GetProjectionMatrix(), m_pCameraMngr->GetViewMatrix(), ToMatrix4(m_qArcBall));
-	m_pMesh1->Render(m_pCameraMngr->GetProjectionMatrix(), m_pCameraMngr->GetViewMatrix(), glm::translate(vector3( 3.0f, 0.0f, 0.0f)));
-		
+	m_pSpaceInvader->Render(m_pCameraMngr->GetProjectionMatrix(), m_pCameraMngr->GetViewMatrix(), glm::translate(vector3(0.0f)));
+
 	// draw a skybox
 	m_pMeshMngr->AddSkyboxToRenderList();
 	
@@ -51,12 +52,12 @@ void Application::Display(void)
 }
 void Application::Release(void)
 {
-	if (m_pMesh != nullptr)
-	{
-		delete m_pMesh;
-		m_pMesh = nullptr;
+
+	if (m_pSpaceInvader) {
+		delete m_pSpaceInvader;
+		m_pSpaceInvader = nullptr;
 	}
-	SafeDelete(m_pMesh1);
+	
 	//release GUI
 	ShutdownGUI();
 }
