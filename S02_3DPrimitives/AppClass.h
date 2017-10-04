@@ -1,6 +1,6 @@
 /*----------------------------------------------
-Original Programmer: Alberto Bobadilla (labigm@gmail.com)
-Edited By: Ian Effendi (iae2784@g.rit.edu) (10/02/2017)
+Programmer: Alberto Bobadilla (labigm@gmail.com)
+Edited By: Ian Effendi (10/03/2017)
 ----------------------------------------------*/
 #ifndef __APPLICATIONCLASS_H_
 #define __APPLICATIONCLASS_H_
@@ -26,7 +26,7 @@ class Application
 	MyMesh* m_pSphere = nullptr;
 	MyMesh* m_pTorus = nullptr;
 private:
-	String m_sProgrammer = "Ian Effendi - (iae2784@g.rit.edu)";
+	String m_sProgrammer = "Ian Effendi - iae2784@g.rit.edu";
 	static ImGuiObject gui; //GUI object
 	
 	uint m_uRenderCallCount = 0; //count of render calls per frame

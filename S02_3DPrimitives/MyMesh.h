@@ -1,6 +1,6 @@
 /*----------------------------------------------
-Original Programmer: Alberto Bobadilla (labigm@gmail.com)
-Edited By: Ian Effendi (iae2784@g.rit.edu) (10/02/2017)
+Programmer: Alberto Bobadilla (labigm@gmail.com)
+Edited By: Ian Effendi (10/03/2017)
 ----------------------------------------------*/
 #ifndef __MYMESH_H_
 #define __MYMESH_H_

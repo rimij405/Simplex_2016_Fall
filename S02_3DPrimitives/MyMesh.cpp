@@ -275,31 +275,87 @@ void MyMesh::GenerateCone(float a_fRadius, float a_fHeight, int a_nSubdivisions,
 	Release();
 	Init();
 
-	// Original code provided by Alberto.
-	GenerateCube(a_fRadius * 2.0f, a_v3Color);
+	// Replace this with your code
+	// GenerateCone(a_fRadius, a_fHeight, a_nSubdivisions, a_v3Color);
 	// -------------------------------
 
-	// A cone should be a series of vertices on the unit circle,
-	// and one tip point that is of the specific height above the circle.
-	// Data structure for storing vertices.
-	// vector3 vertices[100];
+	//  b - c - d
+	// /  \ | /  \
+	//i-----a-----e
+	// \  / | \  /
+	//  h - g - f
 
-	// The tip of the cone.
-	// vector3 tip(0.0f, a_fHeight, 0.0f);
+	// Get the center point.
+	vector3 center = vector3(0.0f, 0.0f, 0.0f);
 
-	// The points on the unit circle.
-	/*for (int i = 0; i < a_nSubdivisions; i++) {
-		// Loop for each of the subdivisions in the unit circle.
-		float angle = (PI * 2.0f) * ((float)i / (float)a_nSubdivisions);
-		float s = sin(angle);
-		float c = cos(angle);
+	// Get the tip.
+	vector3 tip = vector3(0.0f, a_fHeight, 0.0f);
+
+	// Create collection.
+	std::vector<vector3> vertices = std::vector<vector3>();
+	uint uicount = 0;
+
+	// Find points uniformly distributed on a unit circle.
+	for (uint i = 0; i < a_nSubdivisions; i++) {
+		
+		// Calculate current angle.
+		float theta = 2.0f * PI * ((float) i/(float) a_nSubdivisions); // Gets angle for the current point, in relation to the center.
+
+		// Use polar coordinates to get x and z.
+		float x = a_fRadius * cosf(theta);
+		float z = a_fRadius * sinf(theta);
+
+		// Push new vertex onto collection.
+		vertices.push_back(vector3(x, 0.0f, z));
+		uicount++;
+	}
+
+	// Create the base.
+	for (uint i = 0; i < uicount; i++) {
+		
+		// If we haven't reached the last vertex in the collection:
+		if ((i + 1) < uicount) {
+			vector3 bl = vertices[i]; // Bottom Left.
+			vector3 br = vertices[i + 1]; // Bottom Right.
+			vector3 tl = center; // Top Left.
+
+			std::cout << "Cone: <Base> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+		// Once you've reached the last vertex in the collection.
+		else {
+			vector3 bl = vertices[i]; // Bottom Left.
+			vector3 br = vertices[0]; // Bottom Right.
+			vector3 tl = center; // Top Left.
+
+			std::cout << "Cone: <Base> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+
+	}
+
+	// Create the side triangles.
+	for (uint i = 0; i < uicount; i++) {
+
+		if ((i + 1) < uicount) {
+			vector3 bl = vertices[i + 1]; // Bottom Left.
+			vector3 br = vertices[i]; // Bottom Right.
+			vector3 tl = tip; // Top Left.
+
+			std::cout << "Cone: <Sides> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+		else {
+			vector3 bl = vertices[0]; // Bottom Left.
+			vector3 br = vertices[i]; // Bottom Right.
+			vector3 tl = tip; // Top Left.
+
+			std::cout << "Cone: <Sides> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+
+	}
 	
-	}*/
-	
-
-	// Craft points.
-
-
 	// Adding information about color
 	CompleteMesh(a_v3Color);
 	CompileOpenGL3X();
@@ -321,28 +377,104 @@ void MyMesh::GenerateCylinder(float a_fRadius, float a_fHeight, int a_nSubdivisi
 	Init();
 
 	// Replace this with your code
-	// GenerateCube(a_fRadius * 2.0f, a_v3Color);
+	// GenerateCylinder(a_fRadius, a_fHeight, a_nSubdivisions, a_v3Color);
 	// -------------------------------
-
-	// Generate a cylinder.
-	vector3 base(0.0f, -(a_fHeight / 2), 0.0f); // Bottom of the cylinder.
-	vector3 cap(0.0f, a_fHeight / 2, 0.0f); // Top of the cylinder.
-
-	// Generate the vertices on the ends.
-	for (int i = 0; i < a_nSubdivisions; i++) {
 	
-	}
+	// Get the center point.
+	vector3 center_base = vector3(0.0f, 0.0f, 0.0f);
 
+	// Get the tip.
+	vector3 center_cap = vector3(0.0f, a_fHeight, 0.0f);
 
+	// Create collection.
+	std::vector<vector3> vertices_base = std::vector<vector3>();
+	uint uicount_base = 0;
 
-	// The points on the unit circle.
-	for (int i = 0; i < a_nSubdivisions; i++) {
-		// Loop for each of the subdivisions in the unit circle.
-		float angle = (PI * 2.0f) * ((float)i / (float)a_nSubdivisions);
-		float s = sin(angle);
-		float c = cos(angle);
+	// Find points uniformly distributed on a unit circle.
+	for (uint i = 0; i < a_nSubdivisions; i++) {
+
+		// Calculate current angle.
+		float theta = 2.0f * PI * ((float)i / (float)a_nSubdivisions); // Gets angle for the current point, in relation to the center.
 		
+		// Use polar coordinates to get x and z.
+		float x = a_fRadius * cosf(theta);
+		float z = a_fRadius * sinf(theta);
+
+		// Push new vertex onto collection.
+		vertices_base.push_back(vector3(x, 0.0f, z));
+		uicount_base++;
 	}
+
+	// Create the base.
+	for (uint i = 0; i < uicount_base; i++) {
+
+		// If we haven't reached the last vertex in the collection:
+		if ((i + 1) < uicount_base) {
+			vector3 bl = vertices_base[i]; // Bottom Left.
+			vector3 br = vertices_base[i + 1]; // Bottom Right.
+			vector3 tl = center_base; // Top Left.
+
+			std::cout << "Cylinder: <Base> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+		// Once you've reached the last vertex in the collection.
+		else {
+			vector3 bl = vertices_base[i]; // Bottom Left.
+			vector3 br = vertices_base[0]; // Bottom Right.
+			vector3 tl = center_base; // Top Left.
+
+			std::cout << "Cylinder: <Base> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+
+	}
+	
+	// Create the cap.
+	for (uint i = 0; i < uicount_base; i++) {
+
+		// If we haven't reached the last vertex in the collection:
+		if ((i + 1) < uicount_base) {
+			vector3 bl = vector3(vertices_base[i].x, center_cap.y, vertices_base[i].z); // Bottom Left.
+			vector3 br = vector3(vertices_base[i + 1].x, center_cap.y, vertices_base[i + 1].z); // Bottom Right.
+			vector3 tl = center_cap; // Top Left.
+
+			std::cout << "Cylinder: <Cap> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+		// Once you've reached the last vertex in the collection.
+		else {
+			vector3 bl = vector3(vertices_base[i].x, center_cap.y, vertices_base[i].z); // Bottom Left.
+			vector3 br = vector3(vertices_base[0].x, center_cap.y, vertices_base[0].z); // Bottom Right.
+			vector3 tl = center_cap; // Top Left.
+
+			std::cout << "Cylinder: <Cap> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+
+	}
+
+	// Create the side triangles.
+	for (uint i = 0; i < uicount_base; i++) {
+
+		if ((i + 1) < uicount_base) {
+			vector3 bl = vertices_base[i + 1]; // Bottom Left.
+			vector3 br = vertices_base[i]; // Bottom Right.
+			vector3 tl = center_cap; // Top Left.
+
+			std::cout << "Cone: <Sides> [BL|BR|TL|TR] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+		else {
+			vector3 bl = vertices_base[0]; // Bottom Left.
+			vector3 br = vertices_base[i]; // Bottom Right.
+			vector3 tl = center_cap; // Top Left.
+
+			std::cout << "Cone: <Sides> [BL|BR|TL|TR] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
+			AddTri(bl, br, tl); // Add CCW triangle.
+		}
+
+	}
+
 
 	// Adding information about color
 	CompleteMesh(a_v3Color);
@@ -371,7 +503,7 @@ void MyMesh::GenerateTube(float a_fOuterRadius, float a_fInnerRadius, float a_fH
 	Init();
 
 	// Replace this with your code
-	GenerateCube(a_fOuterRadius * 2.0f, a_v3Color);
+	// GenerateTube(a_fOuterRadius, a_fInnerRadius, a_fHeight, a_nSubdivisions, a_v3Color);
 	// -------------------------------
 
 	// Adding information about color
@@ -403,7 +535,7 @@ void MyMesh::GenerateTorus(float a_fOuterRadius, float a_fInnerRadius, int a_nSu
 	Init();
 
 	// Replace this with your code
-	GenerateCube(a_fOuterRadius * 2.0f, a_v3Color);
+	// GenerateTorus(a_fOuterRadius, a_fInnerRadius, a_nSubdivisionsA, a_nSubdivisionsB, a_v3Color);
 	// -------------------------------
 
 	// Adding information about color
@@ -428,7 +560,7 @@ void MyMesh::GenerateSphere(float a_fRadius, int a_nSubdivisions, vector3 a_v3Co
 	Init();
 
 	// Replace this with your code
-	GenerateCube(a_fRadius * 2.0f, a_v3Color);
+	// GenerateSphere(a_fRadius, a_nSubdivisions, a_v3Color);
 	// -------------------------------
 
 	// Adding information about color
