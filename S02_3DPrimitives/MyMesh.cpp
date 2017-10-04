@@ -285,11 +285,15 @@ void MyMesh::GenerateCone(float a_fRadius, float a_fHeight, int a_nSubdivisions,
 	// \  / | \  /
 	//  h - g - f
 
+	// Height and bottom values.
+	float fheight = (a_fHeight / 2.0f);
+	float fbottom = -(fheight);
+
 	// Get the center point.
-	vector3 center = vector3(0.0f, 0.0f, 0.0f);
+	vector3 center = vector3(0.0f, fbottom, 0.0f);
 
 	// Get the tip.
-	vector3 tip = vector3(0.0f, a_fHeight, 0.0f);
+	vector3 tip = vector3(0.0f, fheight, 0.0f);
 
 	// Create collection.
 	std::vector<vector3> vertices = std::vector<vector3>();
@@ -306,7 +310,7 @@ void MyMesh::GenerateCone(float a_fRadius, float a_fHeight, int a_nSubdivisions,
 		float z = a_fRadius * sinf(theta);
 
 		// Push new vertex onto collection.
-		vertices.push_back(vector3(x, 0.0f, z));
+		vertices.push_back(vector3(x, fbottom, z));
 		uicount++;
 	}
 
@@ -380,11 +384,15 @@ void MyMesh::GenerateCylinder(float a_fRadius, float a_fHeight, int a_nSubdivisi
 	// GenerateCylinder(a_fRadius, a_fHeight, a_nSubdivisions, a_v3Color);
 	// -------------------------------
 	
+	// Height and bottom values.
+	float fheight = (a_fHeight / 2.0f);
+	float fbottom = -(fheight);
+
 	// Get the center point.
-	vector3 center_base = vector3(0.0f, 0.0f, 0.0f);
+	vector3 center_base = vector3(0.0f, fbottom, 0.0f);
 
 	// Get the tip.
-	vector3 center_cap = vector3(0.0f, a_fHeight, 0.0f);
+	vector3 center_cap = vector3(0.0f, fheight, 0.0f);
 
 	// Create collection.
 	std::vector<vector3> vertices_base = std::vector<vector3>();
@@ -401,7 +409,7 @@ void MyMesh::GenerateCylinder(float a_fRadius, float a_fHeight, int a_nSubdivisi
 		float z = a_fRadius * sinf(theta);
 
 		// Push new vertex onto collection.
-		vertices_base.push_back(vector3(x, 0.0f, z));
+		vertices_base.push_back(vector3(x, fbottom, z));
 		uicount_base++;
 	}
 
@@ -429,13 +437,13 @@ void MyMesh::GenerateCylinder(float a_fRadius, float a_fHeight, int a_nSubdivisi
 
 	}
 	
-	// Create the cap.
+	// Create the cap. Draw it reverse of the base.
 	for (uint i = 0; i < uicount_base; i++) {
 
 		// If we haven't reached the last vertex in the collection:
 		if ((i + 1) < uicount_base) {
-			vector3 bl = vector3(vertices_base[i].x, center_cap.y, vertices_base[i].z); // Bottom Left.
-			vector3 br = vector3(vertices_base[i + 1].x, center_cap.y, vertices_base[i + 1].z); // Bottom Right.
+			vector3 bl = vector3(vertices_base[i + 1].x, center_cap.y, vertices_base[i + 1].z); // Bottom Left.
+			vector3 br = vector3(vertices_base[i].x, center_cap.y, vertices_base[i].z); // Bottom Right.
 			vector3 tl = center_cap; // Top Left.
 
 			std::cout << "Cylinder: <Cap> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
@@ -443,8 +451,8 @@ void MyMesh::GenerateCylinder(float a_fRadius, float a_fHeight, int a_nSubdivisi
 		}
 		// Once you've reached the last vertex in the collection.
 		else {
-			vector3 bl = vector3(vertices_base[i].x, center_cap.y, vertices_base[i].z); // Bottom Left.
-			vector3 br = vector3(vertices_base[0].x, center_cap.y, vertices_base[0].z); // Bottom Right.
+			vector3 bl = vector3(vertices_base[0].x, center_cap.y, vertices_base[0].z); // Bottom Left.
+			vector3 br = vector3(vertices_base[i].x, center_cap.y, vertices_base[i].z); // Bottom Right.
 			vector3 tl = center_cap; // Top Left.
 
 			std::cout << "Cylinder: <Cap> [L|R|T] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
@@ -453,29 +461,34 @@ void MyMesh::GenerateCylinder(float a_fRadius, float a_fHeight, int a_nSubdivisi
 
 	}
 
-	// Create the side triangles.
+	// Create the side quads.
 	for (uint i = 0; i < uicount_base; i++) {
-
+		
+		// If we haven't reached the last vertex in the collection:
 		if ((i + 1) < uicount_base) {
-			vector3 bl = vertices_base[i + 1]; // Bottom Left.
-			vector3 br = vertices_base[i]; // Bottom Right.
-			vector3 tl = center_cap; // Top Left.
+			// Create a quad.
+			vector3 bl = vertices_base[i + 1];
+			vector3 br = vertices_base[i];
+			vector3 tl = vector3(vertices_base[i + 1].x, center_cap.y, vertices_base[i + 1].z);
+			vector3 tr = vector3(vertices_base[i].x, center_cap.y, vertices_base[i].z);
 
-			std::cout << "Cone: <Sides> [BL|BR|TL|TR] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
-			AddTri(bl, br, tl); // Add CCW triangle.
+			// Add quad.
+			AddQuad(bl, br, tl, tr);
 		}
+		// Once you've reached the last vertex in the collection.
 		else {
-			vector3 bl = vertices_base[0]; // Bottom Left.
-			vector3 br = vertices_base[i]; // Bottom Right.
-			vector3 tl = center_cap; // Top Left.
+			// Create a quad.
+			vector3 bl = vertices_base[0];
+			vector3 br = vertices_base[i];
+			vector3 tl = vector3(vertices_base[0].x, center_cap.y, vertices_base[0].z);
+			vector3 tr = vector3(vertices_base[i].x, center_cap.y, vertices_base[i].z);
 
-			std::cout << "Cone: <Sides> [BL|BR|TL|TR] [" << glm::to_string(bl) << "|" << glm::to_string(br) << "|" << glm::to_string(tl) << "|" << " (" << i << " out of " << uicount_base << " vertices).\n";
-			AddTri(bl, br, tl); // Add CCW triangle.
+			// Add quad.
+			AddQuad(bl, br, tl, tr);
 		}
 
 	}
-
-
+	
 	// Adding information about color
 	CompleteMesh(a_v3Color);
 	CompileOpenGL3X();
