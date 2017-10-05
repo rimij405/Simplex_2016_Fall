@@ -211,6 +211,34 @@ public:
 	OUTPUT: ---
 	*/
 	void GenerateSphere(float a_fRadius, int a_nSubdivisions, vector3 a_v3Color = C_WHITE);
+	/*
+	USAGE: Get the magnitude of a vertex.
+	ARGUMENTS:
+	-	float a_fx -> x value.
+	-	float a_fy -> y value.
+	-	float a_fz -> z value.
+	OUTPUT: float r_fmag -> Magnitude.
+	*/
+	float Magnitude(float a_fx, float a_fy, float a_fz);
+	/*
+	USAGE: Get the magnitude of a vertex.
+	ARGUMENTS:
+	-	float a_fx -> x value.
+	-	float a_fy -> y value.
+	-	float a_fz -> z value.
+	OUTPUT: float r_v3vertex -> Normalized vertex point.
+	*/
+	float Magnitude(vector3 &a_v3vertex);
+	/*
+	USAGE: Get midpoint value.
+	ARGUMENTS:
+	-	std::map<std::string, uint> a_midpoints -> Midpoint indices.
+	-	std::vector<vector3> a_vertices -> Vertices.
+	-	uint vertex1 -> First point.
+	-	uint vertex2 -> Second point.
+	OUTPUT: uint r_midpointIndex -> Midpoint index.
+	*/
+	int MidpointIndex(std::map<std::string, uint> &a_midpoints, std::vector<vector3> &a_vertices, uint vertex1, uint vertex2);
 #pragma endregion
 };
 
