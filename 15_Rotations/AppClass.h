@@ -14,7 +14,8 @@ Date: 2017/05
 
 class Application
 {
-	String m_sProgrammer = "Alberto Bobadilla - labigm@rit.edu";
+	vector3 m_v3Rotation;
+	String m_sProgrammer = "Edited by: Ian Effendi - iae2784@rit.edu";
 	MyMesh* m_pMesh = nullptr;
 
 private:

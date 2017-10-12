@@ -1,8 +1,6 @@
 #include "AppClass.h"
 void Application::InitVariables(void)
 {
-	////Change this to your name and email
-	//m_sProgrammer = "Alberto Bobadilla - labigm@rit.edu";
 
 	////Alberto needed this at this position for software recording.
 	//m_pWindow->setPosition(sf::Vector2i(710, 0));
@@ -10,7 +8,8 @@ void Application::InitVariables(void)
 	//Set the position and target of the camera
 	//(I'm at [0,0,10], looking at [0,0,0] and up is the positive Y axis)
 	m_pCameraMngr->SetPositionTargetAndUp(AXIS_Z * 10.0f, ZERO_V3, AXIS_Y);
-	
+	m_v3Rotation = vector3(1.0f, 1.0f, 1.0f);
+
 	//init the mesh
 	m_pMesh = new MyMesh();
 	m_pMesh->GenerateCone(0.5f, 1.0f, 7, C_RED);
@@ -34,23 +33,21 @@ void Application::Display(void)
 	matrix4 m4View = m_pCameraMngr->GetViewMatrix(); //view Matrix
 	matrix4 m4Projection = m_pCameraMngr->GetProjectionMatrix(); //Projection Matrix
 	
-	//Get a timer
-	static uint uClock = m_pSystem->GenClock();
-	float fTimer = m_pSystem->GetTimeSinceStart(uClock);
+	// Create matrix4 for the x-axis rotation.
+	quaternion qX = glm::angleAxis(m_v3Rotation.x, AXIS_X);
+	quaternion qY = glm::angleAxis(m_v3Rotation.y, AXIS_Y);
+	quaternion qZ = glm::angleAxis(m_v3Rotation.z, AXIS_Z);
 
-	//calculate the current position
-	matrix4 m4Rotation = glm::rotate(IDENTITY_M4, fTimer * 60.0f, vector3(0.0f, 0.0f, 1.0f));
-	matrix4 m4Model;
-	for (uint i = 0; i < 2500; ++i)
-		m4Model = m4Rotation * glm::translate(IDENTITY_M4, vector3(2.5f, 0.0f, 0.0f)) * glm::transpose(m4Rotation);
+	// Check if there are the same.
+	float matching = glm::dot(qX, qZ);
+	if (glm::abs(matching - 1.0) < 0.0001) {
+		qZ *= -1;
+	}
+
+	quaternion qR = qZ * qY * qX;
+		
+	matrix4 m4Model = glm::translate(vector3(1.0f, 0.0f, 0.0f)) * ToMatrix4(qR);// ToMatrix4(qR);
 	
-	/*
-	//extra part, how to rotate around a point (in this case the base of the cone)
-	matrix4 m4Translation = glm::translate(IDENTITY_M4, vector3(0.0f, 0.5f, 0.0f));
-	matrix4 m4TransInverse = glm::translate(IDENTITY_M4, vector3(0.0f, -0.5f, 0.0f));
-	m4Model = m4TransInverse * m4Rotation * m4Translation;
-	*/
-
 	// render the object
 	m_pMesh->Render(m4Projection, m4View, m4Model);
 	
@@ -72,9 +69,6 @@ void Application::Display(void)
 	//m_pMeshMngr->Print("						");
 	m_pMeshMngr->Print("FPS:");
 	m_pMeshMngr->PrintLine(std::to_string(m_pSystem->GetFPS()), C_RED);
-
-	m_pMeshMngr->Print("Time: ");
-	m_pMeshMngr->PrintLine(std::to_string(fTimer), C_RED);
 #pragma endregion
 		
 	//render list call
