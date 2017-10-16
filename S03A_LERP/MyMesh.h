@@ -5,7 +5,21 @@ Date: 2017/05
 #ifndef __MYMESH_H_
 #define __MYMESH_H_
 
-#include "Definitions.h"
+//#define USEBASICX
+#ifdef USEBASICX
+#include "BasicX\BasicX.h"
+using namespace BasicX;
+#else
+#include "Simplex\Simplex.h"
+using namespace Simplex;
+#endif // USEBASICX
+
+#include "SFML\Window.hpp"
+#include "SFML\Graphics.hpp"
+#include "SFML\OpenGL.hpp"
+
+#include "ControllerConfiguration.h"
+#include "imgui\ImGuiObject.h"
 
 class MyMesh
 {
