@@ -21,8 +21,7 @@ class Application
 	uint m_uOrbits = 0; //number of shapes starting at 3 and increasing in sides
 	std::vector<uint> m_shapeList; //shape index for circles
 	std::vector<std::vector<vector3>> m_orbits; // The paths for the orbits are generated at the start.
-	std::vector<vector3> m_targets; // the 'current' destination locations for orbits.
-	std::vector<vector3> m_currents; // the 'current' source locations for orbits.
+	std::vector<uint> m_cycleIDs; // Represents index value for current orbit. 
 	String m_sProgrammer = "Ian Effendi - iae2784@rit.edu";
 	
 private:
