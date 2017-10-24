@@ -8,9 +8,9 @@ void Application::InitVariables(void)
 	//Set the position and target of the camera
 	//(I'm at [0,0,10], looking at [0,0,0] and up is the positive Y axis)
 	m_pCameraMngr->SetPositionTargetAndUp(AXIS_Z * 10.0f, ZERO_V3, AXIS_Y);
-	m_v3Rotation = vector3(0.0f, 0.0f, 0.0f);
-	m_qRotation = quaternion(m_v3Rotation);
-	m_fRotationSpeed = 1.5;
+	m_qOrientation = IDENTITY_QUAT;
+	m_v3Rotation = vector3(0.0f);
+	m_fRotationSpeed = 2;
 
 	//init the mesh
 	m_pMesh = new MyMesh();
@@ -36,17 +36,21 @@ void Application::Display(void)
 	matrix4 m4Projection = m_pCameraMngr->GetProjectionMatrix(); //Projection Matrix
 	
 	// Create matrix4 for the x-axis rotation.
-	// quaternion qX = glm::angleAxis(m_v3Rotation.x, AXIS_X);
-	// quaternion qY = glm::angleAxis(m_v3Rotation.y, AXIS_Y);
-	// quaternion qZ = glm::angleAxis(m_v3Rotation.z, AXIS_Z);
+	quaternion qX = glm::angleAxis(m_v3Rotation.x, AXIS_X);
+	quaternion qY = glm::angleAxis(m_v3Rotation.y, AXIS_Y);
+	quaternion qZ = glm::angleAxis(m_v3Rotation.z, AXIS_Z);
 
-	static uint uClock = m_pSystem->GenClock();
+	quaternion qR = qX * qY * qZ;
+
+	static matrix4 rotMatrix = IDENTITY_M4;
+	rotMatrix = ToMatrix4(qR);
+
+	/* static uint uClock = m_pSystem->GenClock();
 	float dT = m_pSystem->GetDeltaTime(uClock) * m_fRotationSpeed;
-
 		
 	static matrix4 rotMatrix = IDENTITY_M4;
-    rotMatrix = rotMatrix * ToMatrix4(quaternion(m_v3Rotation * dT)); // ToMatrix4(qR);
-
+    m_qOrientation = m_qOrientation * quaternion(m_v3Rotation * dT); // ToMatrix4(qR);
+	rotMatrix = ToMatrix4(m_qOrientation);*/
 		
 	matrix4 m4Model = glm::translate(vector3(1.0f, 0.0f, 0.0f)) * rotMatrix;
 	

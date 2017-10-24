@@ -15,7 +15,7 @@ Date: 2017/05
 class Application
 {
 	vector3 m_v3Rotation;
-	quaternion m_qRotation;
+	quaternion m_qOrientation;
 	float m_fRotationSpeed;
 	String m_sProgrammer = "Edited by: Ian Effendi - iae2784@rit.edu";
 	MyMesh* m_pMesh = nullptr;
