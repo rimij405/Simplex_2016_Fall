@@ -130,9 +130,6 @@ void Application::ProcessKeyReleased(sf::Event a_event)
 			}
 		}
 		break;
-	case sf::Keyboard::R:
-		m_v3Rotation = vector3(0.0f, 0.0f, 0.0f);
-		break;
 	}
 
 	//gui
@@ -424,54 +421,55 @@ void Application::ProcessKeyboard(void)
 	//}
 
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::R)) {
-		//m_qOrientation = IDENTITY_QUAT;
+		m_qOrientation = IDENTITY_QUAT;
 		m_v3Rotation = vector3(0.0f);
+		m_v3Heading = vector3(0.0f);
 	}
 
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::X)) {
 		if (fMultiplier) {
-			// m_v3Rotation.x = -1.0f;
+			m_v3Heading.x = -1.0f;
 			m_v3Rotation.x -= 1.0f;
 		}
 		else {
-			// m_v3Rotation.x = 1.0f;
+			m_v3Heading.x = 1.0f;
 			m_v3Rotation.x += 1.0f;
 		}
 	}
-	//else 
-	//{
-	//	m_v3Rotation.x = 0.0f;
-	//}
+	else 
+	{
+		m_v3Heading.x = 0.0f;
+	}
 
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Y)) {
 		if (fMultiplier) {
-			// m_v3Rotation.y = -1.0f;
+			m_v3Heading.y = -1.0f;
 			m_v3Rotation.y -= 1.0f;
 		}
 		else {
-			// m_v3Rotation.y = 1.0f;
+			m_v3Heading.y = 1.0f;
 			m_v3Rotation.y += 1.0f;
 		}
 	}
-	//else
-	//{
-	//	m_v3Rotation.y = 0.0f;
-	//}
+	else
+	{
+		m_v3Heading.y = 0.0f;
+	}
 
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z)) {
 		if (fMultiplier) {
-			//m_v3Rotation.z = -1.0f;
+			m_v3Heading.z = -1.0f;
 			m_v3Rotation.z -= 1.0f;
 		}
 		else {
-			//m_v3Rotation.z = 1.0f;
+			m_v3Heading.z = 1.0f;
 			m_v3Rotation.z += 1.0f;
 		}
 	}
-	//else
-	//{
-	//	m_v3Rotation.z = 0.0f;
-	//}
+	else
+	{
+		m_v3Heading.z = 0.0f;
+	}
 }
 //Joystick
 void Application::ProcessJoystick(void)

@@ -15,6 +15,7 @@ Date: 2017/05
 class Application
 {
 	vector3 m_v3Rotation;
+	vector3 m_v3Heading;
 	quaternion m_qOrientation;
 	float m_fRotationSpeed;
 	String m_sProgrammer = "Edited by: Ian Effendi - iae2784@rit.edu";

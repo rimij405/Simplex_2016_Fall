@@ -10,7 +10,8 @@ void Application::InitVariables(void)
 	m_pCameraMngr->SetPositionTargetAndUp(AXIS_Z * 10.0f, ZERO_V3, AXIS_Y);
 	m_qOrientation = IDENTITY_QUAT;
 	m_v3Rotation = vector3(0.0f);
-	m_fRotationSpeed = 2;
+	m_v3Heading = vector3(0.0f);
+	m_fRotationSpeed = 1;
 
 	//init the mesh
 	m_pMesh = new MyMesh();
@@ -35,23 +36,69 @@ void Application::Display(void)
 	matrix4 m4View = m_pCameraMngr->GetViewMatrix(); //view Matrix
 	matrix4 m4Projection = m_pCameraMngr->GetProjectionMatrix(); //Projection Matrix
 	
-	// Create matrix4 for the x-axis rotation.
-	quaternion qX = glm::angleAxis(m_v3Rotation.x, AXIS_X);
-	quaternion qY = glm::angleAxis(m_v3Rotation.y, AXIS_Y);
-	quaternion qZ = glm::angleAxis(m_v3Rotation.z, AXIS_Z);
+#pragma region System Clock for Delta Time
 
-	quaternion qR = qX * qY * qZ;
+	// Clock.
+	static uint uClock = m_pSystem->GenClock();
+	float delta = m_pSystem->GetDeltaTime(uClock) * m_fRotationSpeed;
+
+#pragma endregion
+
+#pragma region Rotation Matrix Setup
 
 	static matrix4 rotMatrix = IDENTITY_M4;
-	rotMatrix = ToMatrix4(qR);
 
-	/* static uint uClock = m_pSystem->GenClock();
-	float dT = m_pSystem->GetDeltaTime(uClock) * m_fRotationSpeed;
-		
-	static matrix4 rotMatrix = IDENTITY_M4;
-    m_qOrientation = m_qOrientation * quaternion(m_v3Rotation * dT); // ToMatrix4(qR);
-	rotMatrix = ToMatrix4(m_qOrientation);*/
-		
+#pragma endregion
+
+#pragma region Euler Angles to Quaternions
+	
+	// This causes gimbal lock.
+
+	/*
+	// Create a quaternion for each of the axes.
+	quaternion qX = glm::angleAxis(glm::radians(m_v3Rotation.x) * 100.0f, AXIS_X);
+	quaternion qY = glm::angleAxis(glm::radians(m_v3Rotation.y) * 100.0f, AXIS_Y);
+	quaternion qZ = glm::angleAxis(glm::radians(m_v3Rotation.z) * 100.0f, AXIS_Z);
+
+	m_qOrientation = IDENTITY_QUAT;
+	m_qOrientation = m_qOrientation * qZ;
+	m_qOrientation = m_qOrientation * qY;
+	m_qOrientation = m_qOrientation * qX;
+
+	rotMatrix = ToMatrix4(m_qOrientation);
+	*/
+
+#pragma endregion
+	
+#pragma region Rotation matrix for each axis.
+	
+	// This also causes gimbal lock.
+
+	/*
+	// Create a quaternion for each of the axes.
+	quaternion qX = glm::angleAxis(glm::radians(m_v3Rotation.x) * 100.0f, AXIS_X);
+	quaternion qY = glm::angleAxis(glm::radians(m_v3Rotation.y) * 100.0f, AXIS_Y);
+	quaternion qZ = glm::angleAxis(glm::radians(m_v3Rotation.z) * 100.0f, AXIS_Z);
+
+	rotMatrix = ToMatrix4(m_qOrientation) * ToMatrix4(qX) * ToMatrix4(qZ) * ToMatrix4(qY);
+	*/
+
+#pragma endregion
+
+#pragma region Implementation 2 - Operating directly on the Orientation 
+
+	
+	// Solves gimball lock and is animatable to occur at various speeds.
+
+	// Operate on the quaternion using the heading vector.
+	quaternion qRotation = quaternion(m_v3Heading * delta);
+	m_qOrientation = m_qOrientation * qRotation;
+
+	rotMatrix = ToMatrix4(m_qOrientation);
+	
+
+#pragma endregion
+			
 	matrix4 m4Model = glm::translate(vector3(1.0f, 0.0f, 0.0f)) * rotMatrix;
 	
 	// render the object
