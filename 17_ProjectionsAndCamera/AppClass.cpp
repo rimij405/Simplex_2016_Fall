@@ -53,15 +53,26 @@ void Application::Display(void)
 	//draw a skybox
 	m_pMeshMngr->AddSkyboxToRenderList();
 
-	static float fPos = 0.0f;
-	m_pCamera->SetPosition(vector3(fPos, 0.0f, 10.0f));
-	m_pCamera->SetTarget(vector3(fPos, 0.0f, 9.0f));
-	fPos -= 0.01f;
+	// Proejctions.
+	// Ortho takes six arguments: (left bounds, right bounds, lower bounds, upper bounds, near plane, far plane).
+	// matrix4 m4Projection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 1000.0f); // m_pCameraMngr->GetProjectionMatrix();
+	
+	// Get the aspect ratio.
+	float fView = 90.0f;
+	float fRatio = m_pSystem->GetWindowRatio();
 
-	//draw the primitive
-	//m_pMesh->Render(m_pCamera->GetProjectionMatrix(), m_pCamera->GetViewMatrix(), ToMatrix4(m_qArcBall));
-	//m_pMesh->Render(m_pCamera, ToMatrix4(m_qArcBall));
-	m_pMesh2->Render(m_pCamera, glm::translate(vector3(0.0f, 0.0f, -5.0f)));
+	// Perspective takes: (fieldOfView, aspectRatio, nearPlane, farPlane);
+	matrix4 m4Projection = glm::perspective(fView, fRatio, 0.01f, 1000.0f);
+
+	// Where to look at the objects.
+	vector3 v3Target = m_v3Pos;
+	v3Target.z -= 1.0f;
+
+	// glm::lookAt(location of the camera, position that the camera is looking at, what is "up" in this world.
+	matrix4 m4View = glm::lookAt(vector3(0.0, 0.0, 30.0) + m_v3Pos, v3Target, vector3(0.0, 1.0, 0.0)); // m_pCameraMngr->GetViewMatrix();
+	matrix4 m4Model = ToMatrix4(m_qArcBall);
+
+	m_pMesh->Render(m4Projection, m4View, m4Model);
 
 	//render list call
 	m_uRenderCallCount = m_pMeshMngr->Render();
