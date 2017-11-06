@@ -20,6 +20,12 @@ void Simplex::MyCamera::SetHorizontalPlanes(vector2 a_v2Horizontal) { m_v2Horizo
 
 void Simplex::MyCamera::SetVerticalPlanes(vector2 a_v2Vertical) { m_v2Vertical = a_v2Vertical; }
 
+vector3 Simplex::MyCamera::GetTarget(void) { return m_v3Target; }
+
+vector3 Simplex::MyCamera::GetUp(void) { return m_v3Up; }
+
+vector3 Simplex::MyCamera::GetPosition(void) { return m_v3Position; }
+
 matrix4 Simplex::MyCamera::GetProjectionMatrix(void) { return m_m4Projection; }
 
 matrix4 Simplex::MyCamera::GetViewMatrix(void) { CalculateViewMatrix(); return m_m4View; }
@@ -129,7 +135,8 @@ void Simplex::MyCamera::SetPositionTargetAndUp(vector3 a_v3Position, vector3 a_v
 {
 	m_v3Position = a_v3Position;
 	m_v3Target = a_v3Target;
-	m_v3Up = a_v3Position + a_v3Upward;
+	m_v3Up = a_v3Upward;
+	// m_v3Up = a_v3Position + a_v3Upward;
 	CalculateProjectionMatrix();
 }
 
