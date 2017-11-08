@@ -85,8 +85,86 @@ void MyRigidBody::SetModelMatrix(matrix4 a_m4ModelMatrix)
 	m_m4ToWorld = a_m4ModelMatrix;
 	
 	//your code goes here---------------------
-	m_v3MinG = m_v3MinL;
-	m_v3MaxG = m_v3MaxL;
+	// Get each point needed for maximums and minimums.
+
+	// Set temp values. (Initialize to the local coordinate system, but, will end up as the global coordinate system).
+	vector3 min = vector3(m_v3MinL.x, m_v3MinL.y, m_v3MinL.z);
+	vector3 max = vector3(m_v3MaxL.x, m_v3MaxL.y, m_v3MaxL.z);
+
+	// Create collection of points to check, out of local coordinates translated to world space via the model matrix.
+	std::vector<vector3> points = std::vector<vector3>();
+	points.push_back(vector3(m_m4ToWorld * vector4(min.x, min.y, min.z, 1.0f))); // vector3(min.x, min.y, min.z);
+	points.push_back(vector3(m_m4ToWorld * vector4(min.x, min.y, max.z, 1.0f))); // vector3(min.x, min.y, max.z);
+	points.push_back(vector3(m_m4ToWorld * vector4(min.x, max.y, min.z, 1.0f))); // vector3(min.x, max.y, min.z);
+	points.push_back(vector3(m_m4ToWorld * vector4(max.x, min.y, min.z, 1.0f))); // vector3(max.x, min.y, min.z);
+	points.push_back(vector3(m_m4ToWorld * vector4(min.x, max.y, max.z, 1.0f))); // vector3(min.x, max.y, max.z);
+	points.push_back(vector3(m_m4ToWorld * vector4(max.x, min.y, max.z, 1.0f))); // vector3(max.x, min.y, max.z);
+	points.push_back(vector3(m_m4ToWorld * vector4(max.x, max.y, min.z, 1.0f))); // vector3(max.x, max.y, min.z);
+	points.push_back(vector3(m_m4ToWorld * vector4(max.x, max.y, max.z, 1.0f))); // vector3(max.x, max.y, max.z);
+
+	// Set default values for max and min.
+	vector3 minG = points[0]; // First point will be original minimum in this case.
+	vector3 maxG = points[(points.size() - 1)]; // Last point will be original maximum in this case.
+
+	// Swap max and minimums if necessary.
+	vector3 temp = vector3();
+	if (minG.x > maxG.x) 
+	{
+		temp.x = maxG.x;
+		maxG.x = minG.x;
+		minG.x = temp.x;
+	}
+	if (minG.y > maxG.y)
+	{
+		temp.y = maxG.y;
+		maxG.y = minG.y;
+		minG.y = temp.y;
+	}
+	if (minG.z > maxG.z)
+	{
+		temp.z = maxG.z;
+		maxG.z = minG.z;
+		minG.z = temp.z;
+	}
+	
+	// Cycle through the collection.
+	for (uint i = 0; i < points.size(); i++) 
+	{
+		// Update temp reference.
+		temp = points[i];
+
+		// Set minimum.
+		if (temp.x < minG.x)
+		{
+			minG.x = temp.x;
+		}
+		if (temp.y < minG.y)
+		{
+			minG.y = temp.y;
+		}
+		if (temp.z < minG.z) 
+		{
+			minG.z = temp.z;
+		}
+
+		// Set maximum.
+		if (temp.x > maxG.x)
+		{
+			maxG.x = temp.x;
+		}
+		if (temp.y > maxG.y)
+		{
+			maxG.y = temp.y;
+		}
+		if (temp.z > maxG.z)
+		{
+			maxG.z = temp.z;
+		}
+	}
+	
+	// Set global references.
+	m_v3MinG = minG;
+	m_v3MaxG = maxG;
 	//----------------------------------------
 
 	//we calculate the distance between min and max vectors
