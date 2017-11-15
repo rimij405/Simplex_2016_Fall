@@ -96,6 +96,9 @@ void Application::ProcessKeyReleased(sf::Event a_event)
 		m_pCamera->SetPerspective(false);
 		m_pCamera->CalculateProjectionMatrix();
 		break;
+	case sf::Keyboard::R:
+		m_pCamera->ResetCamera();
+		break;
 	case sf::Keyboard::Add:
 		++m_uActCont;
 		m_uActCont %= 8;
@@ -350,25 +353,46 @@ void Application::CameraRotation(float a_fSpeed)
 	if (MouseX < CenterX)
 	{
 		fDeltaMouse = static_cast<float>(CenterX - MouseX);
-		fAngleY += fDeltaMouse * a_fSpeed;
+		fAngleX += fDeltaMouse * a_fSpeed;
 	}
 	else if (MouseX > CenterX)
 	{
 		fDeltaMouse = static_cast<float>(MouseX - CenterX);
-		fAngleY -= fDeltaMouse * a_fSpeed;
+		fAngleX -= fDeltaMouse * a_fSpeed;
 	}
 
 	if (MouseY < CenterY)
 	{
 		fDeltaMouse = static_cast<float>(CenterY - MouseY);
-		fAngleX -= fDeltaMouse * a_fSpeed;
+		fAngleY -= fDeltaMouse * a_fSpeed;
 	}
 	else if (MouseY > CenterY)
 	{
 		fDeltaMouse = static_cast<float>(MouseY - CenterY);
-		fAngleX += fDeltaMouse * a_fSpeed;
+		fAngleY += fDeltaMouse * a_fSpeed;
 	}
-	//Change the Yaw and the Pitch of the camera
+		
+	// Clamp our angle values.
+	vector2 angle(fAngleX, fAngleY);
+
+	// Get the forward unit vector.
+	vector3 position = m_pCamera->GetPosition();
+	vector3 forward = m_pCamera->GetTarget() - position;
+	vector3 up = glm::normalize(m_pCamera->GetUp());
+	vector3 horizontal = glm::normalize(glm::cross(forward, up));
+
+	// Pitch!
+	forward = glm::rotate(forward, -angle.y, horizontal);
+	
+	// Yaw
+	forward = glm::rotate(forward, angle.x, up);
+
+	// Update our new up.
+	up = glm::rotate(up, -angle.y, horizontal);
+
+	// Set our position, target, and up.
+	m_pCamera->SetPositionTargetAndUp(position, position + forward, up);
+	
 	SetCursorPos(CenterX, CenterY);//Position the mouse in the center
 }
 //Keyboard
@@ -380,11 +404,76 @@ void Application::ProcessKeyboard(void)
 	*/
 #pragma region Camera Position
 	float fSpeed = 0.1f;
-	float fMultiplier = sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) ||
-		sf::Keyboard::isKeyPressed(sf::Keyboard::RShift);
-
+	float fMultiplier = (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift)
+		|| sf::Keyboard::isKeyPressed(sf::Keyboard::RShift));
+	
 	if (fMultiplier)
+	{
 		fSpeed *= 5.0f;
+	}
+
+	// Move the camera forward.
+	vector3 position = m_pCamera->GetPosition();
+	vector3 target = m_pCamera->GetTarget();
+	vector3 up = m_pCamera->GetUp();
+
+	vector3 forward = glm::normalize(target - position);
+	vector3 right = glm::cross(forward, up);
+	
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) 
+	{
+		// Move the camera forward.
+		position += forward * fSpeed;
+		target += forward * fSpeed;
+		up = glm::cross(right, forward);
+		m_pCamera->SetPositionTargetAndUp(position, target, up);
+	}
+
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+	{
+		// Move the camera backward.
+		position -= forward * fSpeed;
+		target -= forward * fSpeed;
+		up = glm::cross(right, forward);
+		m_pCamera->SetPositionTargetAndUp(position, target, up);
+	}
+
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+	{
+		// Move the camera left.
+		position -= right * fSpeed;
+		target -= right * fSpeed;
+		up = glm::cross(right, forward);
+		m_pCamera->SetPositionTargetAndUp(position, target, up);
+	}
+
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+	{
+		// Move the camera right.
+		position += right * fSpeed;
+		target += right * fSpeed;
+		up = glm::cross(right, forward);
+		m_pCamera->SetPositionTargetAndUp(position, target, up);
+	}
+
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
+	{
+		// Move the camera up.
+		position += up * fSpeed;
+		target += up * fSpeed;
+		up = glm::cross(right, forward);
+		m_pCamera->SetPositionTargetAndUp(position, target, up);
+	}
+
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::E))
+	{
+		// Move the camera down.
+		position -= up * fSpeed;
+		target -= up * fSpeed;
+		up = glm::cross(right, forward);
+		m_pCamera->SetPositionTargetAndUp(position, target, up);
+	}
+
 #pragma endregion
 }
 //Joystick

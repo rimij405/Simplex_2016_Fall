@@ -15,7 +15,7 @@ class MyCamera
 	vector3 m_v3Position = vector3(0.0f, 0.0f, 10.0f); //Where my camera is located
 	vector3 m_v3Target = vector3(0.0f, 0.0f, 0.0f); //What I'm looking at
 	vector3 m_v3Up = vector3(0.0f, 1.0f, 0.0f); //What is up
-
+	
 	bool m_bPerspective = true; //perspective view? False is Orthographic
 
 	float m_fFOV = 45.0f; //Field of View
@@ -101,7 +101,7 @@ public:
 	OUTPUT: position of the camera
 	*/
 	vector3 GetPosition(void);
-
+			
 	/*
 	USAGE: Sets the position of the camera
 	ARGUMENTS: vector3 a_v3Target -> What we want the camera to look at
