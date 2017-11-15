@@ -287,6 +287,15 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 	(eSATResults::SAT_NONE has a value of 0)
 	*/
 
+	// Separation Axis Theorem in 3D.
+	// // Collection of all vertices of the bounding rect for each rigidbody.
+	// // Collection of axes for both shapes.
+	// // Also get a collection of axes for all of the cross products. a1xb1, a1xb2, a1xb3...anxb1, anxb2, anxb3...
+	
+	// // 15 planes to check.
+
+
+
 	//there is no axis test that separates this two objects
 	return eSATResults::SAT_NONE;
 }
