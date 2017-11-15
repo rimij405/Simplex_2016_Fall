@@ -54,6 +54,7 @@ void MyRigidBody::Swap(MyRigidBody& other)
 void MyRigidBody::Release(void)
 {
 	m_pMeshMngr = nullptr;
+	m_normals = nullptr;
 	ClearCollidingList();
 }
 //Accessors

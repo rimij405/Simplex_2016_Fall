@@ -4,6 +4,7 @@ using namespace Simplex;
 void MyRigidBody::Init(void)
 {
 	m_pMeshMngr = MeshManager::GetInstance();
+
 	m_bVisibleBS = false;
 	m_bVisibleOBB = true;
 	m_bVisibleARBB = false;
@@ -12,6 +13,12 @@ void MyRigidBody::Init(void)
 
 	m_v3ColorColliding = C_RED;
 	m_v3ColorNotColliding = C_WHITE;
+
+	m_v3Normals = std::vector<vector3>();
+
+	m_v3Normals.push_back(ZERO_V3);
+	m_v3Normals.push_back(ZERO_V3);
+	m_v3Normals.push_back(ZERO_V3);
 
 	m_v3Center = ZERO_V3;
 	m_v3MinL = ZERO_V3;
@@ -260,10 +267,21 @@ void MyRigidBody::AddToRenderList(void)
 	}
 	if (m_bVisibleOBB)
 	{
-		if (m_CollidingRBSet.size() > 0)
+		if (m_CollidingRBSet.size() > 0) 
+		{
 			m_pMeshMngr->AddWireCubeToRenderList(glm::translate(m_m4ToWorld, m_v3Center) * glm::scale(m_v3HalfWidth * 2.0f), m_v3ColorColliding);
+		}
 		else
+		{
 			m_pMeshMngr->AddWireCubeToRenderList(glm::translate(m_m4ToWorld, m_v3Center) * glm::scale(m_v3HalfWidth * 2.0f), m_v3ColorNotColliding);
+		}
+
+		for (uint i = 0; i < m_v3Normals.size(); i++)
+		{
+			if (m_v3Normals[i] != ZERO_V3 && i < 3) {
+				m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, this->GetCenterLocal(), m_v3Normals[i], C_BROWN, C_BROWN);
+			}
+		}
 	}
 	if (m_bVisibleARBB)
 	{
@@ -286,15 +304,239 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 	Simplex that might help you [eSATResults] feel free to use it.
 	(eSATResults::SAT_NONE has a value of 0)
 	*/
-
-	// Separation Axis Theorem in 3D.
-	// // Collection of all vertices of the bounding rect for each rigidbody.
-	// // Collection of axes for both shapes.
-	// // Also get a collection of axes for all of the cross products. a1xb1, a1xb2, a1xb3...anxb1, anxb2, anxb3...
 	
-	// // 15 planes to check.
+	// Separation Axis Theorem in 3D.
+
+	// Quick check to ensure we aren't colliding against ourselves.
+	if (a_pOther != nullptr && this != a_pOther) {
+
+#pragma region Get all the bounding vertices for both objects.
+
+		// Get the bounding points for both AARB's. (8 per object, 16 in total).
+		vector3 o_v3MinL = a_pOther->GetMinLocal();
+		vector3 o_v3MaxL = a_pOther->GetMaxLocal();
+
+		//Calculate the 8 corners of the other object's cube.
+		vector3 o_v3Corner[8];
+
+		//Back square
+		o_v3Corner[0] = o_v3MinL;
+		o_v3Corner[1] = vector3(o_v3MaxL.x, o_v3MinL.y, o_v3MinL.z);
+		o_v3Corner[2] = vector3(o_v3MinL.x, o_v3MaxL.y, o_v3MinL.z);
+		o_v3Corner[3] = vector3(o_v3MaxL.x, o_v3MaxL.y, o_v3MinL.z);
+
+		//Front square
+		o_v3Corner[4] = vector3(o_v3MinL.x, o_v3MinL.y, o_v3MaxL.z);
+		o_v3Corner[5] = vector3(o_v3MaxL.x, o_v3MinL.y, o_v3MaxL.z);
+		o_v3Corner[6] = vector3(o_v3MinL.x, o_v3MaxL.y, o_v3MaxL.z);
+		o_v3Corner[7] = o_v3MaxL;
+
+		//Calculate the 8 corners of this object's cube.
+		vector3 v3Corner[8];
+
+		//Back square
+		v3Corner[0] = this->m_v3MinL;
+		v3Corner[1] = vector3(this->m_v3MaxL.x, this->m_v3MinL.y, this->m_v3MinL.z);
+		v3Corner[2] = vector3(this->m_v3MinL.x, this->m_v3MaxL.y, this->m_v3MinL.z);
+		v3Corner[3] = vector3(this->m_v3MaxL.x, this->m_v3MaxL.y, this->m_v3MinL.z);
+
+		//Front square
+		v3Corner[4] = vector3(this->m_v3MinL.x, this->m_v3MinL.y, this->m_v3MaxL.z);
+		v3Corner[5] = vector3(this->m_v3MaxL.x, this->m_v3MinL.y, this->m_v3MaxL.z);
+		v3Corner[6] = vector3(this->m_v3MinL.x, this->m_v3MaxL.y, this->m_v3MaxL.z);
+		v3Corner[7] = this->m_v3MaxL;
+
+		//Place both sets of vertices into world space.
+		/* for (uint uIndex = 0; uIndex < 8; ++uIndex)
+		{
+			v3Corner[uIndex] = vector3(m_m4ToWorld * vector4(v3Corner[uIndex], 1.0f));
+			o_v3Corner[uIndex] = vector3(a_pOther->m_m4ToWorld * vector4(o_v3Corner[uIndex], 1.0f));
+		}*/
+
+#pragma endregion
+
+#pragma region Get normals / separating axes for each.
+		
+		if (m_v3Normals.size() < 6) 
+		{
+			m_v3Normals.push_back(ZERO_V3);
+			m_v3Normals.push_back(ZERO_V3);
+			m_v3Normals.push_back(ZERO_V3);
+			m_v3Normals.push_back(ZERO_V3);
+			m_v3Normals.push_back(ZERO_V3);
+			m_v3Normals.push_back(ZERO_V3);
+		}
+		
+		// Get axes for each check.
+		vector3 Axes[15];
+		vector3 temp;
+		uint count = 0;
+
+#pragma region Get face normals.
+
+		// Check against axes for this object's local x, y, z space.
+		// // Get x-face normal
+		temp = m_v3Center + AXIS_X;		
+		m_v3Normals[count] = temp;
+		Axes[count] = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
+		// // Add axis to array.
+		count++;
+		
+		// // Get y-face normal
+		temp = m_v3Center + AXIS_Y;
+		m_v3Normals[count] = temp;
+		Axes[count] = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
+		// // Add axis to array.
+		count++;
+
+		// // Get z-face normal
+		temp = m_v3Center + AXIS_Z;
+		m_v3Normals[count] = temp;
+		Axes[count] = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
+		// // Add axis to array.
+		count++;
+		
+		// Check against axes for the other object's local x, y, z space.
+		// // Get x-face normal
+		temp = a_pOther->GetCenterLocal() + AXIS_X * 2.0f;		
+		m_v3Normals[count] = temp;
+		Axes[count] = vector3(a_pOther->GetModelMatrix() * vector4(m_v3Normals[count], 1.0f));
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), m_v3Normals[count], C_BROWN, C_BROWN);
+		// // Add axis to array.
+		count++;
+		
+		// // Get y-face normal
+		temp = a_pOther->GetCenterLocal() + AXIS_Y * 2.0f;
+		m_v3Normals[count] = temp;
+		Axes[count] = vector3(a_pOther->GetModelMatrix() * vector4(m_v3Normals[count], 1.0f));
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), m_v3Normals[count], C_BROWN, C_BROWN);
+		// // Add axis to array.
+		count++;
+
+		// // Get z-face normal
+		temp = a_pOther->GetCenterLocal() + AXIS_Z * 2.0f;
+		m_v3Normals[count] = temp;
+		Axes[count] = vector3(a_pOther->GetModelMatrix() * vector4(m_v3Normals[count], 1.0f));
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), m_v3Normals[count], C_BROWN, C_BROWN);
+		// // Add axis to array.
+		count++;
+
+#pragma endregion
+
+#pragma region Cross products of edges.
+		
+		// Check against cross products for each edge, all of which will be in local space.
+		vector3 a, b, a1, a2, a3, b1, b2, b3; // Vectors representing the edges to check against.
+		a1 = v3Corner[1] - v3Corner[0];
+		a2 = v3Corner[2] - v3Corner[0];
+		a3 = v3Corner[4] - v3Corner[0];
+		b1 = o_v3Corner[1] - o_v3Corner[0];
+		b2 = o_v3Corner[2] - o_v3Corner[0];
+		b3 = o_v3Corner[4] - o_v3Corner[0];
+
+		// // Get axis from cross product of a1 x b1
+		a = glm::cross(a1, b1);
+		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
+		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
+		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
+		Axes[count] = a;
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(m_m4ToWorld, v3Corner[1]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_RED);
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(m_m4ToWorld, v3Corner[0]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_WHITE);
+		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0], v3Corner[1], C_WHITE, C_WHITE);
+		count++;
+
+		// // Get axis from cross product of a1 x b2
+		a = glm::cross(a1, b2);
+		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
+		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
+		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
+		Axes[count] = a;
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(m_m4ToWorld, v3Corner[2]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_BLUE);
+		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0], v3Corner[2], C_WHITE, C_WHITE);
+		count++;
+
+		// // Get axis from cross product of a1 x b3
+		a = glm::cross(a1, b3);
+		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
+		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
+		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
+		Axes[count] = a;
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(m_m4ToWorld, v3Corner[4]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_GREEN);
+		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0], v3Corner[4], C_WHITE, C_WHITE);
+		count++;
+
+		// // Get axis from cross product of a2 x b1
+		a = glm::cross(a2, b1);
+		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
+		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
+		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
+		Axes[count] = a;
+		count++;
+
+		// // Get axis from cross product of a2 x b2
+		a = glm::cross(a2, b2);
+		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
+		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
+		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
+		Axes[count] = a;
+		count++;
+
+		// // Get axis from cross product of a2 x b3
+		a = glm::cross(a2, b3);
+		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
+		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
+		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
+		Axes[count] = a;
+		count++;
+
+		// // Get axis from cross product of a3 x b1
+		a = glm::cross(a3, b1);
+		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
+		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
+		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
+		Axes[count] = a;
+		count++;
+
+		// // Get axis from cross product of a3 x b2
+		a = glm::cross(a3, b2);
+		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
+		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
+		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
+		Axes[count] = a;
+		count++;
+
+		// // Get axis from cross product of a3 x b3
+		a = glm::cross(a3, b3);
+		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
+		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
+		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
+		Axes[count] = a;
+		count++;
+
+		for (uint i = 0; i < sizeof(Axes) / sizeof(Axes[0]); i++) 
+		{
+			m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, Axes[i], C_YELLOW, C_YELLOW);
+		}
+
+#pragma endregion
 
 
+
+#pragma endregion
+
+		// The axes being tested, are the perpendicular/orthogonal/normals for each of the edges.
+
+
+
+
+
+		// // Collection of all vertices of the bounding rect for each rigidbody.
+		// // Collection of axes for both shapes.
+		// // Also get a collection of axes for all of the cross products. a1xb1, a1xb2, a1xb3...anxb1, anxb2, anxb3...
+
+		// // 15 planes to check.
+
+	}
 
 	//there is no axis test that separates this two objects
 	return eSATResults::SAT_NONE;
