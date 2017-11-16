@@ -1023,7 +1023,6 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 	return eSATResults::SAT_NONE;
 
 }
-
 // Methods added to help aid mathematical computations.
 vector3 MyRigidBody::Normalize(vector3 const a_pVector)
 {
