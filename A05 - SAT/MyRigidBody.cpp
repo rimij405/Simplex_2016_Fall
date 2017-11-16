@@ -312,6 +312,8 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 
 	I do understand how to get all 15 axes, at the very least.
 
+	I really feel like there wasn't enough time spent on explaining why this algorithm is easier to do in local space (relative to one of the objects), as opposed to global.
+
 	For this method, if there is an axis that separates the two objects
 	then the return will be different than 0; 1 for any separating axis
 	is ok if you are not going for the extra credit, if you could not
@@ -324,10 +326,240 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 
 	// Quick check to ensure we aren't colliding against ourselves.
 	if (a_pOther != nullptr && this != a_pOther) {
+		
+#pragma region Setting up data references.
 
+		// Instead of using the OBB struct in the textbook, I wanted to be explicit to get a better understanding of the code.
 
+		// Matrices and float used for collision detection.
+		float halfwidth, o_halfwidth;
+		matrix3 rMatrix, absMatrix;
+		vector3 translation;
 
+		// Set up index values for the two rigidbodies.
+		const int x = 0;
+		const int y = 1;
+		const int z = 2;
 
+		// Values given to the current (self) rigidbody and the other (other) rigidbody.
+		const int self = 0;
+		const int other = 1;
+
+		// Containers for the values.
+		vector3 center[z];
+		vector3 extents[z];
+		vector3 aLocalAxis[3];
+		vector3 bLocalAxis[3];
+
+		// Get the centers.
+		center[self] = this->GetCenterGlobal();
+		center[other] = a_pOther->GetCenterGlobal();
+
+		// Get half widths.
+		extents[self] = this->GetHalfWidth();
+		extents[other] = a_pOther->GetHalfWidth();
+
+		// Get the local axes
+		// // Self.
+		aLocalAxis[x] = Normalize(vector3(this->GetModelMatrix() * vector4(AXIS_X, 0.0f)));
+		aLocalAxis[y] = Normalize(vector3(this->GetModelMatrix() * vector4(AXIS_Y, 0.0f)));
+		aLocalAxis[z] = Normalize(vector3(this->GetModelMatrix() * vector4(AXIS_Z, 0.0f)));
+
+		// // Other.
+		bLocalAxis[x] = Normalize(vector3(a_pOther->GetModelMatrix() * vector4(AXIS_X, 0.0f)));
+		bLocalAxis[y] = Normalize(vector3(a_pOther->GetModelMatrix() * vector4(AXIS_Y, 0.0f)));
+		bLocalAxis[z] = Normalize(vector3(a_pOther->GetModelMatrix() * vector4(AXIS_Z, 0.0f)));
+
+#pragma endregion
+
+#pragma region Compute the rotation matrix.
+
+	// We want to ensure that b and a are operating in a relative space.
+		// One simple way to ensure this, is to translate b's values into a's coordinate space.
+
+	for (uint u = 0; u < 3; u++) {
+		for (uint v = 0; v < 3; v++) {
+			// Transform other into self's local space.
+			rMatrix[u][v] = Dot(aLocalAxis[u], bLocalAxis[v]);
+		}
+	}
+
+#pragma endregion
+
+#pragma region Translation between the rigidbodies.
+
+	// Get the translation of the centers.
+	translation = center[1] - center[x];
+
+	// Transform the translation into a's local coordinates, by projecting each onto a's unit axes.
+	translation = vector3(Dot(translation, aLocalAxis[x]),
+		Dot(translation, aLocalAxis[y]),
+		Dot(translation, aLocalAxis[z]));
+
+	// Set the absolute value of every value in the matrix. Use the epsilon as a threshold buffer for ensuring everything is a non-zero, non-null vector.
+	for (uint u = 0; u < 3; u++) 
+	{
+		for (uint v = 0; v < 3; v++) {
+			absMatrix[u][v] = glm::abs(rMatrix[u][v]) + FLT_EPSILON;
+		}
+	}
+	
+#pragma endregion
+
+#pragma region Testing all axes.
+
+// Apologies for the nexted regions.
+	// This is hopefully less messy to look through.
+
+#pragma region Testing the major local axes (1).
+
+	// a.x, a.y, and a.z axes.
+	for (uint axis = 0; axis < 3; axis++) {
+
+		// Get the half width for this rigidbody.
+		halfwidth = extents[self][axis];
+
+		// Get the half width for the other rigidbody.
+		o_halfwidth = (extents[other][x] * absMatrix[axis][x])
+			+ (extents[other][y] * absMatrix[axis][y])
+			+ (extents[other][z] * absMatrix[axis][z]);
+
+		// Check the distance.
+		if (glm::abs(translation[axis]) > halfwidth + o_halfwidth)
+		{
+			// A separation axis has been found.
+			switch (axis) {
+			case y:
+				return eSATResults::SAT_AY;
+			case z:
+				return eSATResults::SAT_AZ;
+			case x:
+				return eSATResults::SAT_AX;
+			}
+		}
+	}
+
+#pragma endregion
+
+#pragma region Testing the major local axes (2).
+
+	// b.x, b.y, and b.z axes.
+	for (uint axis = 0; axis < 3; axis++) {
+
+		// Get the half width for this rigidbody.
+		halfwidth = (extents[self][x] * absMatrix[x][axis])
+			+ (extents[self][y] * absMatrix[y][axis])
+			+ (extents[self][z] * absMatrix[z][axis]);
+
+		// Get the half width for the other rigidbody.
+		o_halfwidth = extents[other][axis];
+
+		// Check the distance.
+		if (glm::abs((translation[x] * rMatrix[x][axis]) 
+			+ (translation[y] * rMatrix[y][axis])
+			+ (translation[z] * rMatrix[z][axis])) > halfwidth + o_halfwidth)
+		{
+			// A separation axis has been found.
+			switch (axis) {
+			case y:
+				return eSATResults::SAT_BY;
+			case z:
+				return eSATResults::SAT_BZ;
+			case x:
+				return eSATResults::SAT_BX;
+			}
+		}
+	}
+	
+#pragma endregion
+
+#pragma region Testing cross-product axes.
+
+	// There are 9 cross-product axes.
+	// a1xb1, a2xb1, a3xb1
+	// a1xb2, a2xb2, a3xb2
+	// a1xb3, a2xb3, a3xb3
+
+	// Checks axis a1 x b1.
+	halfwidth = extents[self][y] * absMatrix[z][x] + extents[self][z] * absMatrix[y][x];
+	o_halfwidth = extents[other][y] * absMatrix[x][z] + extents[other][z] * absMatrix[x][y];
+	if (glm::abs(translation[z] * rMatrix[y][x] - translation[y] * rMatrix[z][x]) > halfwidth + o_halfwidth)
+	{
+		return eSATResults::SAT_AXxBX;
+	}
+
+	// Checks axis a1 x b2.
+	halfwidth = extents[self][y] * absMatrix[z][y] + extents[self][z] * absMatrix[y][y];
+	o_halfwidth = extents[other][x] * absMatrix[x][z] + extents[other][z] * absMatrix[x][x];
+	if (glm::abs(translation[z] * rMatrix[y][y] - translation[y] * rMatrix[z][y]) > halfwidth + o_halfwidth)
+	{
+		return eSATResults::SAT_AXxBY;
+	}
+
+	// Checks axis a1 x b3.
+	halfwidth = extents[self][y] * absMatrix[z][z] + extents[self][z] * absMatrix[y][z];
+	o_halfwidth = extents[other][x] * absMatrix[x][y] + extents[other][y] * absMatrix[x][x];
+	if (glm::abs(translation[z] * rMatrix[y][z] - translation[y] * rMatrix[z][z]) > halfwidth + o_halfwidth)
+	{
+		return eSATResults::SAT_AXxBZ;
+	}
+
+	// Checks axis a2 x b1.
+	halfwidth = extents[self][x] * absMatrix[z][x] + extents[self][z] * absMatrix[x][x];
+	o_halfwidth = extents[other][y] * absMatrix[y][z] + extents[other][z] * absMatrix[y][y];
+
+	if (glm::abs(translation[x] * rMatrix[z][x] - translation[z] * rMatrix[x][x]) > halfwidth + o_halfwidth)
+	{
+		return eSATResults::SAT_AYxBX;
+	}
+
+	// Checks axis a2 x b2.
+	halfwidth = extents[self][x] * absMatrix[z][y] + extents[self][z] * absMatrix[x][y];
+	o_halfwidth = extents[other][x] * absMatrix[y][z] + extents[other][z] * absMatrix[y][x];
+	if (glm::abs(translation[x] * rMatrix[z][y] - translation[z] * rMatrix[x][y]) > halfwidth + o_halfwidth)
+	{
+		return eSATResults::SAT_AYxBY;
+	}
+
+	// Checks axis a2 x b3.
+	halfwidth = extents[self][x] * absMatrix[z][z] + extents[self][z] * absMatrix[x][z];
+	o_halfwidth = extents[other][x] * absMatrix[y][y] + extents[other][y] * absMatrix[y][x];
+	if (glm::abs(translation[x] * rMatrix[z][z] - translation[z] * rMatrix[x][z]) > halfwidth + o_halfwidth)
+	{
+		return eSATResults::SAT_AYxBZ;
+	}
+
+	// Checks axis a3 x b1.
+	halfwidth = extents[self][x] * absMatrix[y][x] + extents[self][y] * absMatrix[x][x];
+	o_halfwidth = extents[other][y] * absMatrix[z][z] + extents[other][z] * absMatrix[z][y];
+	if (glm::abs(translation[y] * rMatrix[x][x] - translation[x] * rMatrix[y][x]) > halfwidth + o_halfwidth)
+	{
+		return eSATResults::SAT_AZxBX;
+	}
+
+	// Checks axis a3 x b2.
+	halfwidth = extents[self][x] * absMatrix[y][y] + extents[self][y] * absMatrix[x][y];
+	o_halfwidth = extents[other][x] * absMatrix[z][z] + extents[other][z] * absMatrix[z][x];
+	if (glm::abs(translation[y] * rMatrix[x][y] - translation[x] * rMatrix[y][y]) > halfwidth + o_halfwidth)
+	{
+		return eSATResults::SAT_AZxBY;
+	}
+
+	// Checks axis a3 x b3.
+	halfwidth = extents[self][x] * absMatrix[y][z] + extents[self][y] * absMatrix[x][z];
+	o_halfwidth = extents[other][x] * absMatrix[z][y] + extents[other][y] * absMatrix[z][x];
+	if (glm::abs(translation[y] * rMatrix[x][z] - translation[x] * rMatrix[y][z]) > halfwidth + o_halfwidth) 
+	{
+		return eSATResults::SAT_AZxBZ;
+	}
+
+#pragma endregion
+
+#pragma endregion
+
+#pragma region Original attempt at the SAT theory, without using the textbook reference.
+
+/*
 #pragma region Get all the bounding vertices for both objects.
 
 		// Get the bounding points for both AARB's. (8 per object, 16 in total).
@@ -431,9 +663,6 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 			if (projA < minB) { minB = projB; }
 			else if (projA > maxB) { maxB = projB; }
 		}
-		*/
-
-
 
 		// Separating axis.
 		// push = this->GetCenterLocal() + glm::normalize(temp - this->GetCenterLocal()) * (this->GetHalfWidth().x * 1.5f);
@@ -565,12 +794,12 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		b2 = this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[2]) - this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[0]);
 		b3 = this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[4]) - this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[0]);
 
-		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0] * 1.3f, v3Corner[1] * 1.3f, C_YELLOW, C_RED); // Draw edge, a1.
-		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0] * 1.3f, v3Corner[2] * 1.3f, C_YELLOW, C_GREEN); // Draw edge, a2.
-		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0] * 1.3f, v3Corner[4] * 1.3f, C_YELLOW, C_BLUE); // Draw edge, a3.
-		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Corner[0] * 1.3f, o_v3Corner[1] * 1.3f, C_YELLOW, C_RED); // Draw edge, b1.
-		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Corner[0] * 1.3f, o_v3Corner[2] * 1.3f, C_YELLOW, C_GREEN); // Draw edge, b2.
-		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Corner[0] * 1.3f, o_v3Corner[4] * 1.3f, C_YELLOW, C_BLUE); // Draw edge, b3.
+		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[x] * 1.3f, v3Corner[y] * 1.3f, C_YELLOW, C_RED); // Draw edge, a1.
+		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[x] * 1.3f, v3Corner[z] * 1.3f, C_YELLOW, C_GREEN); // Draw edge, a2.
+		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[x] * 1.3f, v3Corner[4] * 1.3f, C_YELLOW, C_BLUE); // Draw edge, a3.
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Corner[x] * 1.3f, o_v3Corner[y] * 1.3f, C_YELLOW, C_RED); // Draw edge, b1.
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Corner[x] * 1.3f, o_v3Corner[z] * 1.3f, C_YELLOW, C_GREEN); // Draw edge, b2.
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Corner[x] * 1.3f, o_v3Corner[4] * 1.3f, C_YELLOW, C_BLUE); // Draw edge, b3.
 
 		vector3 offset = ZERO_V3; // AXIS_X * 2.0f;
 
@@ -592,7 +821,7 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		m_pMeshMngr->AddSphereToRenderList(glm::translate(IDENTITY_M4, o_v3Corner[4] - offset) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_PURPLE);
 		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, o_v3Corner[0] - offset, o_v3Corner[1] - offset, C_YELLOW, C_RED); // X-axis edge.
 		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, o_v3Corner[0] - offset, o_v3Corner[2] - offset, C_YELLOW, C_GREEN); // Y-axis edge.
-		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, o_v3Corner[0] - offset, o_v3Corner[4] - offset, C_YELLOW, C_BLUE); // Z-axis edge. */
+		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, o_v3Corner[0] - offset, o_v3Corner[4] - offset, C_YELLOW, C_BLUE); // Z-axis edge.
 		
 #pragma endregion
 		
@@ -730,7 +959,6 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 			m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), ZERO_V3, Axes[i], C_YELLOW, C_PURPLE);
 			// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, Axes[i], C_YELLOW, C_YELLOW);
 		}
-		*/
 
 #pragma endregion
 
@@ -783,16 +1011,20 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 			}
 		}
 	}
-
+	
+#pragma endregion
 	*/
 
 #pragma endregion
 
 	}
 
-	//there is no axis test that separates this two objects
+	// There is no axis test that separates these objects.
 	return eSATResults::SAT_NONE;
+
 }
+
+// Methods added to help aid mathematical computations.
 vector3 MyRigidBody::Normalize(vector3 const a_pVector)
 {
 	return glm::normalize(vector3(a_pVector.x, a_pVector.y, a_pVector.z));
