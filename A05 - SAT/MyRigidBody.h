@@ -215,6 +215,12 @@ public:
 	*/
 	vector3 GetHalfWidth(void);
 	/*
+	Usage: Sends a vector3 to the world space.
+	Arguments: Model to World matrix, Vector to convert.
+	Output: global vector
+	*/
+	vector3 ToWorldSpace(matrix4 a_m4WorldMatrix, vector3 a_v3vector);
+	/*
 	Usage: Gets Model to World matrix
 	Arguments: ---
 	Output: model to world matrix

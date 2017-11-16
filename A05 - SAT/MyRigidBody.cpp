@@ -82,6 +82,7 @@ vector3 MyRigidBody::GetCenterGlobal(void){	return vector3(m_m4ToWorld * vector4
 vector3 MyRigidBody::GetMinGlobal(void) { return m_v3MinG; }
 vector3 MyRigidBody::GetMaxGlobal(void) { return m_v3MaxG; }
 vector3 MyRigidBody::GetHalfWidth(void) { return m_v3HalfWidth; }
+vector3 MyRigidBody::ToWorldSpace(matrix4 a_m4WorldMatrix, vector3 a_v3Vector) { return vector3(a_m4WorldMatrix * vector4(a_v3Vector, 1.0f)); }
 matrix4 MyRigidBody::GetModelMatrix(void) { return m_m4ToWorld; }
 void MyRigidBody::SetModelMatrix(matrix4 a_m4ModelMatrix)
 {
@@ -239,8 +240,9 @@ bool MyRigidBody::IsColliding(MyRigidBody* const a_pOther)
 	//if they are colliding check the SAT
 	if (bColliding)
 	{
-		if(SAT(a_pOther) != eSATResults::SAT_NONE)
+		if (SAT(a_pOther) != eSATResults::SAT_NONE) {
 			bColliding = false;// reset to false
+		}
 	}
 
 	if (bColliding) //they are colliding
@@ -276,12 +278,13 @@ void MyRigidBody::AddToRenderList(void)
 			m_pMeshMngr->AddWireCubeToRenderList(glm::translate(m_m4ToWorld, m_v3Center) * glm::scale(m_v3HalfWidth * 2.0f), m_v3ColorNotColliding);
 		}
 
+		/* // Display normals.
 		for (uint i = 0; i < m_v3Normals.size(); i++)
 		{
 			if (m_v3Normals[i] != ZERO_V3 && i < 3) {
 				m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, this->GetCenterLocal(), m_v3Normals[i], C_BROWN, C_BROWN);
 			}
-		}
+		} */
 	}
 	if (m_bVisibleARBB)
 	{
@@ -318,6 +321,7 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 
 		//Calculate the 8 corners of the other object's cube.
 		vector3 o_v3Corner[8];
+		vector3 o_v3Globals[8];
 
 		//Back square
 		o_v3Corner[0] = o_v3MinL;
@@ -333,6 +337,7 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 
 		//Calculate the 8 corners of this object's cube.
 		vector3 v3Corner[8];
+		vector3 v3Globals[8];
 
 		//Back square
 		v3Corner[0] = this->m_v3MinL;
@@ -347,16 +352,17 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		v3Corner[7] = this->m_v3MaxL;
 
 		//Place both sets of vertices into world space.
-		/* for (uint uIndex = 0; uIndex < 8; ++uIndex)
+		for (uint uIndex = 0; uIndex < 8; ++uIndex)
 		{
-			v3Corner[uIndex] = vector3(m_m4ToWorld * vector4(v3Corner[uIndex], 1.0f));
-			o_v3Corner[uIndex] = vector3(a_pOther->m_m4ToWorld * vector4(o_v3Corner[uIndex], 1.0f));
-		}*/
+			v3Globals[uIndex] = vector3(m_m4ToWorld * vector4(v3Corner[uIndex], 1.0f));
+			o_v3Globals[uIndex] = vector3(a_pOther->m_m4ToWorld * vector4(o_v3Corner[uIndex], 1.0f));
+		}
 
 #pragma endregion
 
-#pragma region Get normals / separating axes for each.
+#pragma region Get normals / separating axes for each of the 15 cases.
 		
+		// Set up the face normals, if not set up already.
 		if (m_v3Normals.size() < 6) 
 		{
 			m_v3Normals.push_back(ZERO_V3);
@@ -366,11 +372,15 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 			m_v3Normals.push_back(ZERO_V3);
 			m_v3Normals.push_back(ZERO_V3);
 		}
-		
+
 		// Get axes for each check.
 		vector3 Axes[15];
 		vector3 temp;
 		uint count = 0;
+
+		vector3 push;
+		vector3 axis;
+		float minA, maxA, minB, maxB;
 
 #pragma region Get face normals.
 
@@ -378,47 +388,109 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		// // Get x-face normal
 		temp = m_v3Center + AXIS_X;		
 		m_v3Normals[count] = temp;
-		Axes[count] = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
-		// // Add axis to array.
-		count++;
+		axis = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
+
+		// Project the center of the objects against the axis.
+		float centerA = glm::dot(this->GetCenterGlobal(), axis);
+		float centerB = glm::dot(a_pOther->GetCenterGlobal(), axis);
+		float distance = glm::abs(centerB - centerA);
 		
+		// Separating axis.
+		// push = this->GetCenterLocal() + glm::normalize(temp - this->GetCenterLocal()) * (this->GetHalfWidth().x * 1.5f);
+		// m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), this->GetCenterLocal(), push, C_YELLOW, C_RED);
+
+		// Way to drow the X-axis separating plane:
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, -90.0f, AXIS_Y), C_RED); // CCW
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 90.0f, AXIS_Y), C_RED); // CW
+
+		// // Add axis to array.
+		Axes[count] = axis;
+		count++;
+				
 		// // Get y-face normal
 		temp = m_v3Center + AXIS_Y;
 		m_v3Normals[count] = temp;
-		Axes[count] = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
+		axis = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
+		
+		// Separating axis.
+		// push = this->GetCenterLocal() + glm::normalize(temp - this->GetCenterLocal()) * (this->GetHalfWidth().y * 1.5f);
+		// m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), this->GetCenterLocal(), push, C_YELLOW, C_GREEN);
+
+		// Way to drow the Y-axis separating plane:
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, -90.0f, AXIS_X), C_GREEN); // CCW
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 90.0f, AXIS_X), C_GREEN); // CW
+		
 		// // Add axis to array.
+		Axes[count] = axis;
 		count++;
 
 		// // Get z-face normal
 		temp = m_v3Center + AXIS_Z;
 		m_v3Normals[count] = temp;
-		Axes[count] = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
+		axis = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
+
+		// Separating axis.
+		// push = this->GetCenterLocal() + glm::normalize(temp - this->GetCenterLocal()) * (this->GetHalfWidth().z * 1.5f);
+		// m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), this->GetCenterLocal(), push, C_YELLOW, C_BLUE);
+
+		// Way to drow the Z-axis separating plane:
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 180.0f, AXIS_X), C_BLUE); // CCW
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 0.0f, AXIS_X), C_BLUE); // CW
+		
 		// // Add axis to array.
+		Axes[count] = axis;
 		count++;
 		
 		// Check against axes for the other object's local x, y, z space.
 		// // Get x-face normal
-		temp = a_pOther->GetCenterLocal() + AXIS_X * 2.0f;		
+		temp = a_pOther->GetCenterLocal() + AXIS_X;		
 		m_v3Normals[count] = temp;
-		Axes[count] = vector3(a_pOther->GetModelMatrix() * vector4(m_v3Normals[count], 1.0f));
-		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), m_v3Normals[count], C_BROWN, C_BROWN);
+		axis = vector3(a_pOther->GetModelMatrix() * vector4(m_v3Normals[count], 1.0f));
+
+		// Separating axis.
+		// push = a_pOther->GetCenterLocal() + glm::normalize(temp - a_pOther->GetCenterLocal()) * (a_pOther->GetHalfWidth().x * 1.5f);
+		// m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), push, C_YELLOW, C_RED);
+
+		// Way to drow the X-axis separating plane:
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, -90.0f, AXIS_Y), C_RED); // CCW
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 90.0f, AXIS_Y), C_RED); // CW
+
 		// // Add axis to array.
+		Axes[count] = axis;
 		count++;
 		
 		// // Get y-face normal
-		temp = a_pOther->GetCenterLocal() + AXIS_Y * 2.0f;
+		temp = a_pOther->GetCenterLocal() + AXIS_Y;
 		m_v3Normals[count] = temp;
-		Axes[count] = vector3(a_pOther->GetModelMatrix() * vector4(m_v3Normals[count], 1.0f));
-		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), m_v3Normals[count], C_BROWN, C_BROWN);
+		axis = vector3(a_pOther->GetModelMatrix() * vector4(m_v3Normals[count], 1.0f));
+		
+		// Separating axis.
+		// push = a_pOther->GetCenterLocal() + glm::normalize(temp - a_pOther->GetCenterLocal()) * (a_pOther->GetHalfWidth().y * 1.5f);
+		// m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), push, C_YELLOW, C_GREEN);
+
+		// Way to drow the Y-axis separating plane:
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, -90.0f, AXIS_X), C_GREEN); // CCW
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 90.0f, AXIS_X), C_GREEN); // CW
+		
 		// // Add axis to array.
+		Axes[count] = axis;
 		count++;
 
 		// // Get z-face normal
-		temp = a_pOther->GetCenterLocal() + AXIS_Z * 2.0f;
+		temp = a_pOther->GetCenterLocal() + AXIS_Z;
 		m_v3Normals[count] = temp;
-		Axes[count] = vector3(a_pOther->GetModelMatrix() * vector4(m_v3Normals[count], 1.0f));
-		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), m_v3Normals[count], C_BROWN, C_BROWN);
+		axis = vector3(a_pOther->GetModelMatrix() * vector4(m_v3Normals[count], 1.0f));
+
+		// Separating axis.
+		// push = a_pOther->GetCenterLocal() + glm::normalize(temp - a_pOther->GetCenterLocal()) * (a_pOther->GetHalfWidth().z * 1.5f);
+		// m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), push, C_YELLOW, C_BLUE);
+
+		// Way to drow the Z-axis separating plane:
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 180.0f, AXIS_X), C_BLUE); // CCW
+		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 0.0f, AXIS_X), C_BLUE); // CW
+
 		// // Add axis to array.
+		Axes[count] = axis;
 		count++;
 
 #pragma endregion
@@ -427,12 +499,36 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		
 		// Check against cross products for each edge, all of which will be in local space.
 		vector3 a, b, a1, a2, a3, b1, b2, b3; // Vectors representing the edges to check against.
-		a1 = v3Corner[1] - v3Corner[0];
-		a2 = v3Corner[2] - v3Corner[0];
-		a3 = v3Corner[4] - v3Corner[0];
-		b1 = o_v3Corner[1] - o_v3Corner[0];
-		b2 = o_v3Corner[2] - o_v3Corner[0];
-		b3 = o_v3Corner[4] - o_v3Corner[0];
+		a1 = this->ToWorldSpace(m_m4ToWorld, v3Corner[1]) - this->ToWorldSpace(m_m4ToWorld, v3Corner[0]);
+		a2 = this->ToWorldSpace(m_m4ToWorld, v3Corner[2]) - this->ToWorldSpace(m_m4ToWorld, v3Corner[0]);
+		a3 = this->ToWorldSpace(m_m4ToWorld, v3Corner[4]) - this->ToWorldSpace(m_m4ToWorld, v3Corner[0]);
+		b1 = this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[1]) - this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[0]);
+		b2 = this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[2]) - this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[0]);
+		b3 = this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[4]) - this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[0]);
+
+		vector3 offset = ZERO_V3; // AXIS_X * 2.0f;
+
+#pragma region Display rigidbody debug points + edges.
+
+		// Render the rigidbody debug wireframe:
+		/* m_pMeshMngr->AddSphereToRenderList(glm::translate(IDENTITY_M4, v3Corner[1]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_YELLOW);
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(IDENTITY_M4, v3Corner[0]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_YELLOW);
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(IDENTITY_M4, v3Corner[2]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_YELLOW);
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(IDENTITY_M4, v3Corner[4]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_YELLOW);
+		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, v3Corner[0], v3Corner[1], C_YELLOW, C_RED); // X-axis edge.
+		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, v3Corner[0], v3Corner[2], C_YELLOW, C_GREEN); // Y-axis edge.
+		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, v3Corner[0], v3Corner[4], C_YELLOW, C_BLUE); // Z-axis edge.
+
+		// Render the second rigidbody debug wireframe.
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(IDENTITY_M4, o_v3Corner[1] - offset) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_PURPLE);
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(IDENTITY_M4, o_v3Corner[0] - offset) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_PURPLE);
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(IDENTITY_M4, o_v3Corner[2] - offset) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_PURPLE);
+		m_pMeshMngr->AddSphereToRenderList(glm::translate(IDENTITY_M4, o_v3Corner[4] - offset) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_PURPLE);
+		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, o_v3Corner[0] - offset, o_v3Corner[1] - offset, C_YELLOW, C_RED); // X-axis edge.
+		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, o_v3Corner[0] - offset, o_v3Corner[2] - offset, C_YELLOW, C_GREEN); // Y-axis edge.
+		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, o_v3Corner[0] - offset, o_v3Corner[4] - offset, C_YELLOW, C_BLUE); // Z-axis edge. */
+		
+#pragma endregion
 
 		// // Get axis from cross product of a1 x b1
 		a = glm::cross(a1, b1);
@@ -440,10 +536,18 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
 		Axes[count] = a;
-		m_pMeshMngr->AddSphereToRenderList(glm::translate(m_m4ToWorld, v3Corner[1]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_RED);
-		m_pMeshMngr->AddSphereToRenderList(glm::translate(m_m4ToWorld, v3Corner[0]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_WHITE);
-		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0], v3Corner[1], C_WHITE, C_WHITE);
+
+		// Display the separating axis:
+		push = this->GetCenterLocal() + glm::normalize(a) * (2.0f);
+		m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), this->GetCenterLocal(), push, C_YELLOW, C_BLUE);
+		// Draw the edge a1:
+		m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), v3Globals[0], v3Globals[1] - v3Globals[0], C_YELLOW, C_BLUE);
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Globals[0], o_v3Globals[1] - o_v3Globals[0], C_YELLOW, C_BLUE);
+		
+		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), a1, b1, C_YELLOW, C_RED);
+		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), ZERO_V3, a, C_YELLOW, C_RED);
 		count++;
+		
 
 		// // Get axis from cross product of a1 x b2
 		a = glm::cross(a1, b2);
@@ -451,8 +555,8 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
 		Axes[count] = a;
-		m_pMeshMngr->AddSphereToRenderList(glm::translate(m_m4ToWorld, v3Corner[2]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_BLUE);
-		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0], v3Corner[2], C_WHITE, C_WHITE);
+		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), a1, b2, C_YELLOW, C_GREEN);
+		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), ZERO_V3, a, C_YELLOW, C_GREEN);
 		count++;
 
 		// // Get axis from cross product of a1 x b3
@@ -461,8 +565,8 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
 		Axes[count] = a;
-		m_pMeshMngr->AddSphereToRenderList(glm::translate(m_m4ToWorld, v3Corner[4]) * glm::scale(IDENTITY_M4, vector3(0.1f)), C_GREEN);
-		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0], v3Corner[4], C_WHITE, C_WHITE);
+		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), a1, b3, C_YELLOW, C_GREEN);
+		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), ZERO_V3, a, C_YELLOW, C_BLUE);
 		count++;
 
 		// // Get axis from cross product of a2 x b1
@@ -512,29 +616,74 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
 		Axes[count] = a;
 		count++;
+		
+#pragma endregion
 
-		for (uint i = 0; i < sizeof(Axes) / sizeof(Axes[0]); i++) 
+#pragma region Display debug lines involving edge cross products. (indices 6 through 14 (elements 7 through 15)).
+
+		/*
+		for (uint i = 6; i < sizeof(Axes) / sizeof(Axes[0]); i++)
 		{
-			m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, Axes[i], C_YELLOW, C_YELLOW);
+			m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), ZERO_V3, Axes[i], C_YELLOW, C_PURPLE);
+			// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, Axes[i], C_YELLOW, C_YELLOW);
 		}
+		*/
 
 #pragma endregion
 
+#pragma endregion
+		
+#pragma region Check projections against each of the axes.
+		
+	/*
 
+	// Check each of the faces for this rigidbody.
+	for (uint axisIndex = 0; axisIndex < sizeof(Axes) / sizeof(Axes[0]); axisIndex++) 
+	{
+		// Get the axis to project onto, and normalize it.
+		axis = glm::normalize(Axes[axisIndex]);
+
+		// Set initial min and max.
+		minA = glm::dot(v3Globals[0], axis);
+		minB = glm::dot(o_v3Globals[0], axis);
+		maxA = minA;
+		maxB = minB;
+		
+		// Find the minimum and maximum dot values.
+		for (uint projIndex = 1; projIndex < 8; projIndex++)
+		{
+			float projA = glm::dot(v3Globals[projIndex], axis);
+			float projB = glm::dot(o_v3Globals[projIndex], axis);
+
+			if (projA < minA)
+			{
+				minA = projA;
+			}
+			else if (projA > maxA)
+			{
+				maxA = projA;
+			}
+
+			if (projB < minB)
+			{
+				minB = projB;
+			}
+			else if (projB > maxB)
+			{
+				maxB = projB;
+			}
+
+			// Check for overlap.
+			if (maxA < minB && minA < maxB) {
+				// There is a gap.
+				return 1; // No collision.
+			}
+		}
+	}
+
+	*/
 
 #pragma endregion
-
-		// The axes being tested, are the perpendicular/orthogonal/normals for each of the edges.
-
-
-
-
-
-		// // Collection of all vertices of the bounding rect for each rigidbody.
-		// // Collection of axes for both shapes.
-		// // Also get a collection of axes for all of the cross products. a1xb1, a1xb2, a1xb3...anxb1, anxb2, anxb3...
-
-		// // 15 planes to check.
 
 	}
 

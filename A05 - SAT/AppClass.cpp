@@ -44,9 +44,13 @@ void Application::Update(void)
 	m_pMeshMngr->AddAxisToRenderList(mCreeper);
 
 	// Display face normals.
-	m_pMeshMngr->AddLineToRenderList(m_pCreeperRB->GetModelMatrix(), m_pCreeperRB->GetCenterLocal(), m_pCreeperRB->GetCenterLocal() + AXIS_X, C_RED, C_RED);
-	m_pMeshMngr->AddLineToRenderList(m_pCreeperRB->GetModelMatrix(), m_pCreeperRB->GetCenterLocal(), m_pCreeperRB->GetCenterLocal() + AXIS_Y, C_GREEN, C_GREEN);
-	m_pMeshMngr->AddLineToRenderList(m_pCreeperRB->GetModelMatrix(), m_pCreeperRB->GetCenterLocal(), m_pCreeperRB->GetCenterLocal() + AXIS_Z, C_BLUE, C_BLUE);
+	//m_pMeshMngr->AddLineToRenderList(m_pCreeperRB->GetModelMatrix(), m_pCreeperRB->GetCenterLocal(), m_pCreeperRB->GetCenterLocal() + AXIS_X, C_RED, C_RED);
+	//m_pMeshMngr->AddLineToRenderList(m_pCreeperRB->GetModelMatrix(), m_pCreeperRB->GetCenterLocal(), m_pCreeperRB->GetCenterLocal() + AXIS_Y, C_GREEN, C_GREEN);
+	//m_pMeshMngr->AddLineToRenderList(m_pCreeperRB->GetModelMatrix(), m_pCreeperRB->GetCenterLocal(), m_pCreeperRB->GetCenterLocal() + AXIS_Z, C_BLUE, C_BLUE);
+
+	//m_pMeshMngr->AddLineToRenderList(m_pSteveRB->GetModelMatrix(), m_pSteveRB->GetCenterLocal(), m_pSteveRB->GetCenterLocal() + AXIS_X, C_RED, C_RED);
+	//m_pMeshMngr->AddLineToRenderList(m_pSteveRB->GetModelMatrix(), m_pSteveRB->GetCenterLocal(), m_pSteveRB->GetCenterLocal() + AXIS_Y, C_GREEN, C_GREEN);
+	//m_pMeshMngr->AddLineToRenderList(m_pSteveRB->GetModelMatrix(), m_pSteveRB->GetCenterLocal(), m_pSteveRB->GetCenterLocal() + AXIS_Z, C_BLUE, C_BLUE);
 
 	//Set model matrix to Steve
 	matrix4 mSteve = glm::translate(vector3(2.25f, 0.0f, 0.0f)) * glm::rotate(IDENTITY_M4, -55.0f, AXIS_Z);
