@@ -300,6 +300,18 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 	/*
 	Your code goes here instead of this comment;
 
+	Ian Effendi (iae2784@g.rit.edu)
+
+	So, as a rundown, I really struggled with this assignment.
+	On my first attempt, I attempted to use the global space,
+	but, ran into issues when it came time to project the translation vector 
+	and halfwidths onto the axis.
+
+	On a high-level, I understand the theorem in terms of the pseudocode, but,
+	I've only seen the textbook's version (local space) workr, instead of the other way around.
+
+	I do understand how to get all 15 axes, at the very least.
+
 	For this method, if there is an axis that separates the two objects
 	then the return will be different than 0; 1 for any separating axis
 	is ok if you are not going for the extra credit, if you could not
@@ -312,6 +324,9 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 
 	// Quick check to ensure we aren't colliding against ourselves.
 	if (a_pOther != nullptr && this != a_pOther) {
+
+
+
 
 #pragma region Get all the bounding vertices for both objects.
 
@@ -391,15 +406,43 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		axis = vector3(m_m4ToWorld * vector4(m_v3Normals[count], 1.0f));
 
 		// Project the center of the objects against the axis.
-		float centerA = glm::dot(this->GetCenterGlobal(), axis);
-		float centerB = glm::dot(a_pOther->GetCenterGlobal(), axis);
-		float distance = glm::abs(centerB - centerA);
+		vector3 projCA = Projection(this->GetCenterGlobal(), axis);
+		vector3 projCB = Projection(a_pOther->GetCenterGlobal(), axis);
+		float distance = glm::distance(projCA, projCB); // Distance between the vectors.
 		
+		// Project the halfwidths.
+
+
+		/*
+		float minA, minB, maxA, maxB;
+		minA = minB = ScalarProjection(v3Globals[0], axis);
+		maxA = maxB = ScalarProjection(o_v3Globals[0], axis);
+
+		// Loop through and check for min and max projections.
+		for (uint i = 0; i < 8; i++) 
+		{
+			// Get min/max from first object's projections.
+			float projA = ScalarProjection(v3Globals[i], axis);
+			if (projA < minA) {	minA = projA; }
+			else if (projA > maxA) { maxA = projA; }
+
+			// Get min/max from second object's projections.
+			float projB = ScalarProjection(o_v3Globals[i], axis);
+			if (projA < minB) { minB = projB; }
+			else if (projA > maxB) { maxB = projB; }
+		}
+		*/
+
+
+
 		// Separating axis.
 		// push = this->GetCenterLocal() + glm::normalize(temp - this->GetCenterLocal()) * (this->GetHalfWidth().x * 1.5f);
 		// m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), this->GetCenterLocal(), push, C_YELLOW, C_RED);
 
-		// Way to drow the X-axis separating plane:
+		// Separating axis (normal, identity).
+		//m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(axis) * 2.0f, C_WHITE, C_RED);
+
+		// Way to draw the X-axis separating plane:
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, -90.0f, AXIS_Y), C_RED); // CCW
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 90.0f, AXIS_Y), C_RED); // CW
 
@@ -416,7 +459,10 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		// push = this->GetCenterLocal() + glm::normalize(temp - this->GetCenterLocal()) * (this->GetHalfWidth().y * 1.5f);
 		// m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), this->GetCenterLocal(), push, C_YELLOW, C_GREEN);
 
-		// Way to drow the Y-axis separating plane:
+		// Separating axis (normal, identity).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(axis) * 2.0f, C_WHITE, C_GREEN);
+
+		// Way to draw the Y-axis separating plane:
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, -90.0f, AXIS_X), C_GREEN); // CCW
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 90.0f, AXIS_X), C_GREEN); // CW
 		
@@ -433,7 +479,10 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		// push = this->GetCenterLocal() + glm::normalize(temp - this->GetCenterLocal()) * (this->GetHalfWidth().z * 1.5f);
 		// m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), this->GetCenterLocal(), push, C_YELLOW, C_BLUE);
 
-		// Way to drow the Z-axis separating plane:
+		// Separating axis (normal, identity).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(axis) * 2.0f, C_WHITE, C_BLUE);
+
+		// Way to draw the Z-axis separating plane:
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 180.0f, AXIS_X), C_BLUE); // CCW
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(this->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 0.0f, AXIS_X), C_BLUE); // CW
 		
@@ -451,7 +500,10 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		// push = a_pOther->GetCenterLocal() + glm::normalize(temp - a_pOther->GetCenterLocal()) * (a_pOther->GetHalfWidth().x * 1.5f);
 		// m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), push, C_YELLOW, C_RED);
 
-		// Way to drow the X-axis separating plane:
+		// Separating axis (normal, identity)
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(axis) * 2.0f, C_PURPLE, C_RED);
+
+		// Way to draw the X-axis separating plane:
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, -90.0f, AXIS_Y), C_RED); // CCW
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 90.0f, AXIS_Y), C_RED); // CW
 
@@ -468,7 +520,10 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		// push = a_pOther->GetCenterLocal() + glm::normalize(temp - a_pOther->GetCenterLocal()) * (a_pOther->GetHalfWidth().y * 1.5f);
 		// m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), push, C_YELLOW, C_GREEN);
 
-		// Way to drow the Y-axis separating plane:
+		// Separating axis (normal, identity)
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(axis) * 2.0f, C_PURPLE, C_GREEN);
+
+		// Way to draw the Y-axis separating plane:
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, -90.0f, AXIS_X), C_GREEN); // CCW
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 90.0f, AXIS_X), C_GREEN); // CW
 		
@@ -485,7 +540,10 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		// push = a_pOther->GetCenterLocal() + glm::normalize(temp - a_pOther->GetCenterLocal()) * (a_pOther->GetHalfWidth().z * 1.5f);
 		// m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), push, C_YELLOW, C_BLUE);
 
-		// Way to drow the Z-axis separating plane:
+		// Separating axis (normal, identity)
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(axis) * 2.0f, C_PURPLE, C_BLUE);
+
+		// Way to draw the Z-axis separating plane:
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 180.0f, AXIS_X), C_BLUE); // CCW
 		// m_pMeshMngr->AddPlaneToRenderList(glm::translate(a_pOther->GetModelMatrix(), push) * glm::rotate(IDENTITY_M4, 0.0f, AXIS_X), C_BLUE); // CW
 
@@ -499,12 +557,20 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		
 		// Check against cross products for each edge, all of which will be in local space.
 		vector3 a, b, a1, a2, a3, b1, b2, b3; // Vectors representing the edges to check against.
-		a1 = this->ToWorldSpace(m_m4ToWorld, v3Corner[1]) - this->ToWorldSpace(m_m4ToWorld, v3Corner[0]);
+		
+		a1 = this->ToWorldSpace(m_m4ToWorld, v3Corner[1]) - this->ToWorldSpace(m_m4ToWorld, v3Corner[0]);		
 		a2 = this->ToWorldSpace(m_m4ToWorld, v3Corner[2]) - this->ToWorldSpace(m_m4ToWorld, v3Corner[0]);
 		a3 = this->ToWorldSpace(m_m4ToWorld, v3Corner[4]) - this->ToWorldSpace(m_m4ToWorld, v3Corner[0]);
 		b1 = this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[1]) - this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[0]);
 		b2 = this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[2]) - this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[0]);
 		b3 = this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[4]) - this->ToWorldSpace(a_pOther->GetModelMatrix(), o_v3Corner[0]);
+
+		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0] * 1.3f, v3Corner[1] * 1.3f, C_YELLOW, C_RED); // Draw edge, a1.
+		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0] * 1.3f, v3Corner[2] * 1.3f, C_YELLOW, C_GREEN); // Draw edge, a2.
+		m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, v3Corner[0] * 1.3f, v3Corner[4] * 1.3f, C_YELLOW, C_BLUE); // Draw edge, a3.
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Corner[0] * 1.3f, o_v3Corner[1] * 1.3f, C_YELLOW, C_RED); // Draw edge, b1.
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Corner[0] * 1.3f, o_v3Corner[2] * 1.3f, C_YELLOW, C_GREEN); // Draw edge, b2.
+		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Corner[0] * 1.3f, o_v3Corner[4] * 1.3f, C_YELLOW, C_BLUE); // Draw edge, b3.
 
 		vector3 offset = ZERO_V3; // AXIS_X * 2.0f;
 
@@ -529,23 +595,20 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, o_v3Corner[0] - offset, o_v3Corner[4] - offset, C_YELLOW, C_BLUE); // Z-axis edge. */
 		
 #pragma endregion
-
+		
 		// // Get axis from cross product of a1 x b1
 		a = glm::cross(a1, b1);
 		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
-		Axes[count] = a;
+		axis = a;
 
-		// Display the separating axis:
-		push = this->GetCenterLocal() + glm::normalize(a) * (2.0f);
-		m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), this->GetCenterLocal(), push, C_YELLOW, C_BLUE);
-		// Draw the edge a1:
-		m_pMeshMngr->AddLineToRenderList(this->GetModelMatrix(), v3Globals[0], v3Globals[1] - v3Globals[0], C_YELLOW, C_BLUE);
-		m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), o_v3Globals[0], o_v3Globals[1] - o_v3Globals[0], C_YELLOW, C_BLUE);
-		
-		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), a1, b1, C_YELLOW, C_RED);
-		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), ZERO_V3, a, C_YELLOW, C_RED);
+		// Display the axis orthogonal to both a1 and b1. (The separation axis).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(a) * 2.0f, C_RED, C_RED);
+		// m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, this->GetCenterLocal(), this->GetCenterLocal() + glm::normalize(a) * 2.0f, C_RED, C_RED);
+		// m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), a_pOther->GetCenterLocal() + glm::normalize(a) * 2.0f, C_RED, C_RED);
+
+		Axes[count] = axis;
 		count++;
 		
 
@@ -554,9 +617,14 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
-		Axes[count] = a;
-		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), a1, b2, C_YELLOW, C_GREEN);
-		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), ZERO_V3, a, C_YELLOW, C_GREEN);
+		axis = a;
+
+		// Display the axis orthogonal to both a1 and b2. (The separation axis).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(a) * 2.0f, C_RED, C_GREEN);
+		// m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, this->GetCenterLocal(), this->GetCenterLocal() + glm::normalize(a) * 2.0f, C_GREEN, C_GREEN);
+		// m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), a_pOther->GetCenterLocal() + glm::normalize(a) * 2.0f, C_GREEN, C_GREEN);
+
+		Axes[count] = axis;
 		count++;
 
 		// // Get axis from cross product of a1 x b3
@@ -564,9 +632,14 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
-		Axes[count] = a;
-		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), a1, b3, C_YELLOW, C_GREEN);
-		// m_pMeshMngr->AddLineToRenderList(glm::translate(IDENTITY_M4, offset), ZERO_V3, a, C_YELLOW, C_BLUE);
+		axis = a;
+
+		// Display the axis orthogonal to both a1 and b3. (The separation axis).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(a) * 2.0f, C_RED, C_BLUE);
+		// m_pMeshMngr->AddLineToRenderList(m_m4ToWorld, this->GetCenterLocal(), this->GetCenterLocal() + glm::normalize(a) * 2.0f, C_BLUE, C_BLUE);
+		// m_pMeshMngr->AddLineToRenderList(a_pOther->GetModelMatrix(), a_pOther->GetCenterLocal(), a_pOther->GetCenterLocal() + glm::normalize(a) * 2.0f, C_BLUE, C_BLUE);
+
+		Axes[count] = axis;
 		count++;
 
 		// // Get axis from cross product of a2 x b1
@@ -574,7 +647,12 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
-		Axes[count] = a;
+		axis = a;
+
+		// Display the axis orthogonal to both a2 and b1. (The separation axis).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(a) * 2.0f, C_GREEN, C_BLUE);
+
+		Axes[count] = axis;
 		count++;
 
 		// // Get axis from cross product of a2 x b2
@@ -582,7 +660,12 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
-		Axes[count] = a;
+		axis = a;
+
+		// Display the axis orthogonal to both a2 and b2. (The separation axis).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(a) * 2.0f, C_GREEN, C_GREEN);
+
+		Axes[count] = axis;
 		count++;
 
 		// // Get axis from cross product of a2 x b3
@@ -590,7 +673,12 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
-		Axes[count] = a;
+		axis = a;
+
+		// Display the axis orthogonal to both a2 and b3. (The separation axis).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(a) * 2.0f, C_GREEN, C_BLUE);
+
+		Axes[count] = axis;
 		count++;
 
 		// // Get axis from cross product of a3 x b1
@@ -598,7 +686,12 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
-		Axes[count] = a;
+		axis = a;
+
+		// Display the axis orthogonal to both a3 and b1. (The separation axis).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(a) * 2.0f, C_BLUE, C_RED);
+
+		Axes[count] = axis;
 		count++;
 
 		// // Get axis from cross product of a3 x b2
@@ -606,7 +699,12 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
-		Axes[count] = a;
+		axis = a;
+
+		// Display the axis orthogonal to both a3 and b2. (The separation axis).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(a) * 2.0f, C_BLUE, C_GREEN);
+
+		Axes[count] = axis;
 		count++;
 
 		// // Get axis from cross product of a3 x b3
@@ -614,7 +712,12 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 		if (glm::abs(a.x) <= FLT_EPSILON) { a.x = FLT_EPSILON; }
 		if (glm::abs(a.y) <= FLT_EPSILON) { a.y = FLT_EPSILON; }
 		if (glm::abs(a.z) <= FLT_EPSILON) { a.z = FLT_EPSILON; }
-		Axes[count] = a;
+		axis = a;
+
+		// Display the axis orthogonal to both a3 and b3. (The separation axis).
+		// m_pMeshMngr->AddLineToRenderList(IDENTITY_M4, ZERO_V3, glm::normalize(a) * 2.0f, C_BLUE, C_BLUE);
+
+		Axes[count] = axis;
 		count++;
 		
 #pragma endregion
@@ -689,4 +792,33 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 
 	//there is no axis test that separates this two objects
 	return eSATResults::SAT_NONE;
+}
+vector3 MyRigidBody::Normalize(vector3 const a_pVector)
+{
+	return glm::normalize(vector3(a_pVector.x, a_pVector.y, a_pVector.z));
+}
+float MyRigidBody::Dot(vector3 const a_pA, vector3 const a_pB) 
+{
+	vector3 a = a_pA;
+	vector3 b = a_pB;
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+vector3 MyRigidBody::Projection(vector3 const a_pVector, vector3 const a_pAxis)
+{
+	vector3 proj = a_pAxis;
+	float dot = Dot(a_pVector, a_pAxis);
+	float lengthSqr = a_pAxis.x * a_pAxis.x + a_pAxis.y * a_pAxis.y + a_pAxis.z * a_pAxis.z;
+
+	proj.x = (dot / lengthSqr) * a_pAxis.x;
+	proj.y = (dot / lengthSqr) * a_pAxis.y;
+
+	return proj;
+}
+float MyRigidBody::ScalarProjection(vector3 const a_pVector, vector3 const a_pAxis)
+{
+	vector3 proj = a_pAxis;
+	float dot = Dot(a_pVector, a_pAxis);
+	float length = glm::sqrt(a_pAxis.x * a_pAxis.x + a_pAxis.y * a_pAxis.y + a_pAxis.z * a_pAxis.z);
+
+	return (dot / length);
 }

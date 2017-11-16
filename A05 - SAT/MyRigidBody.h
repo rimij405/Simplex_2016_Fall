@@ -254,6 +254,32 @@ private:
 	OUTPUT: 0 for colliding, other = first axis that succeeds test
 	*/
 	uint SAT(MyRigidBody* const a_pOther);
+	/*
+	USAGE: Will return a unit vector in the same direction as the one provided.
+	ARGUMENTS:  vector3 const a_pVector -> Vector to be normalized.
+	OUTPUT: Returns a vector with a length of 1.
+	*/
+	vector3 Normalize(vector3 const a_pVector);
+	/*
+	USAGE: Will return the dot product.
+	ARGUMENTS: vector3 const a_pA -> the first vector, vector3 const a_pB -> the second vector.
+	OUTPUT: Returns dot product between vectors.
+	*/
+	float Dot(vector3 const a_pA, vector3 const a_pB);
+	/*
+	USAGE: Will return the projection, provided a vector and an axis.
+	ARGUMENTS: vector3 const a_pVector -> Vector to be projected. vector3 const a_pAxis -> Axis to project on.
+	OUTPUT: Returns projection vector.
+	*/
+	vector3 Projection(vector3 const a_pVector, vector3 const a_pAxis);
+	/*
+	USAGE: Will return the scalar projection, provided a vector and an axis.
+	ARGUMENTS: vector3 const a_pVector -> Vector to be projected. vector3 const a_pAxis -> Axis to project on.
+	OUTPUT: Returns projection scalar.
+	*/
+	float ScalarProjection(vector3 const a_pVector, vector3 const a_pAxis);
+
+
 };//class
 
 } //namespace Simplex
