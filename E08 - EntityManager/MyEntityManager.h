@@ -22,7 +22,7 @@ public:
 	Arguments: ---
 	Output: singleton pointer
 	*/
-	static MyEntityManager* GetInstance();
+	static MyEntityManager* GetInstance(void);
 	/*
 	Usage: Releases the content of the singleton
 	Arguments: ---
