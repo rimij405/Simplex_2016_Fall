@@ -4,13 +4,48 @@
 	Ian Effendi (iae2784@g.rit.edu)
 */
 
+/*
+	Octree:
+	-> Create the root octant.
+		-> [Set the minimum size (half widths) for subdivision.]
+			-> [Validate as a vector3 where every dimension is positive and non-zezo.]
+		-> [Set the maximum subdivision level.]
+			-> [Validate as a positive, non-zero value (min: 1).]
+		-> [Set the maximum/ideal entity count.]
+			-> [Validate as a positive, non-zero value (min: 1).]
+
+	-> When adding entities to the octree:
+		-> [Check if entity is within the octant's bounds.]
+			-> If true,
+				-> [Check if the octant has any children.]
+					-> If true,
+						-> [Attempt to add octant to all children.]
+					-> Else,
+						-> [Check if the octant has met the maximum subdivision threshold.]
+							-> If true, // May need to subdivide.
+								-> [Check if over the maximum/ideal entity count.]
+									-> If true, // May need to subdivide.
+										-> [Check if the octant is big enough to subdivide.]
+											-> If true, // Subdivide.
+												-> [Subdivide the octant.]
+												-> [Attempt to add octant to all children.]
+											-> Else,
+												-> [Add entity to the octant's list.]
+									-> Else, // No need to subdivide.
+										-> [Add entity to the octant's list.]
+							-> Else, // No need to subdivide.
+								-> [Add entity to the octant's list.]
+			-> Else,
+				-> [Do not add the entity to the octant's list. (EXIT).]
+*/
+
 #include "MyOctant.h"
 namespace Simplex {
 
 #pragma region Constructor(s)
 
 	/*
-	USAGE: Constructor will create an octant containing all the Entities that the MeshManager currently contains.
+	USAGE: Constructor will create an octant containing all the Entities that the EntityManager currently contains.
 	ARGUMENTS:
 	- uint a_uSubdivisionLimit = 2 -> Sets the maximum level of subdivisions.
 	- uint a_uIdealEntityCount = 5 -> Sets the ideal level of objects per octant.

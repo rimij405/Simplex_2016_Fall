@@ -94,7 +94,7 @@ namespace Simplex {
 #pragma region Constructor(s)
 
 		/*
-		USAGE: Constructor will create an octant containing all the Entities that the MeshManager currently contains.
+		USAGE: Constructor will create an octant containing all the Entities that the EntityManager currently contains.
 		ARGUMENTS:
 		- uint a_uSubdivisionLimit = 2 -> Sets the maximum level of subdivisions.
 		- uint a_uIdealEntityCount = 5 -> Sets the ideal level of objects per octant.
