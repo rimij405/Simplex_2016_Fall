@@ -135,6 +135,12 @@ namespace Simplex {
 	bool MyOctant::IsColliding(uint a_uRBIndex)
 	{
 		// TODO.
+
+		// Pseudocode:
+		// Get the Entity from the EntityManager, using the supplied index.
+		// If, and only if, the Entity exists, check if it is colliding with the octant volume.
+		// If it isn't colliding OR if the Entity does not exist, return false.
+		// Else, return true.
 	}
 
 	/*
@@ -145,6 +151,10 @@ namespace Simplex {
 	bool MyOctant::IsRoot(void)
 	{
 		// TODO.
+
+		// Pseudocode:
+		// Check if the GetParent returns a nullptr instead of a valid MyOctant*.
+		// If it is a nullptr, this is the root.
 	}
 
 	/*
@@ -155,6 +165,10 @@ namespace Simplex {
 	bool MyOctant::IsLeaf(void)
 	{
 		// TODO.
+
+		// Pseudocode:
+		// Check if the Octant has any children.
+		// If it does, return true. Otherwise, return false.
 	}
 
 	/*
@@ -165,6 +179,10 @@ namespace Simplex {
 	bool MyOctant::ContainsMoreThan(uint a_uEntities)
 	{
 		// TODO.
+
+		// Pseudocode:
+		// Useful for checking against the entity threshold.
+		// Check to see if the subdivision contains more than a certain amount of entities.
 	}
 
 #pragma endregion
@@ -179,6 +197,9 @@ namespace Simplex {
 	float MyOctant::GetSize(void)
 	{
 		// TODO.
+
+		// Pseudocode.
+		// This will return the average of the widths in all dimensions.
 	}
 
 	/*
@@ -189,6 +210,9 @@ namespace Simplex {
 	vector3 MyOctant::GetHalfWidths(void)
 	{
 		// TODO.
+
+		// Pseudocode.
+		// This will return a vector3 containing the Octant's halfwidths.
 	}
 
 	/*
@@ -199,6 +223,9 @@ namespace Simplex {
 	vector3 MyOctant::GetCenterGlobal(void)
 	{
 		// TODO.
+
+		// Pseudocode.
+		// This will return a vector3 containing the octant's center in global space.
 	}
 
 	/*
@@ -209,6 +236,9 @@ namespace Simplex {
 	vector3 MyOctant::GetMaxGlobal(void)
 	{
 		// TODO.
+
+		// Pseudocode.
+		// This will return a vector3 containing the octant's maximum vector, in global space.
 	}
 
 	/*
@@ -219,6 +249,9 @@ namespace Simplex {
 	vector3 MyOctant::GetMinGlobal(void)
 	{
 		// TODO.
+
+		// Pseudocode.
+		// This will return a vector3 containing the octant's minimum vector, in global space.
 	}
 
 	/*
