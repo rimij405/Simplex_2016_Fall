@@ -4,12 +4,6 @@
 	Ian Effendi (iae2784@g.rit.edu)
 */
 
-/*
-USAGE:
-ARGUMENTS: ---
-OUTPUT: ---
-*/
-
 #ifndef __MY_OCTANT_H_
 #define __MY_OCTANT_H_
 
@@ -73,11 +67,18 @@ namespace Simplex {
 		void Release(void);
 
 		/*
-		USAGE: Allocates member field data and initializes the octant.
+		USAGE: Initializes the octant.
 		ARGUMENTS: ---
 		OUTPUT: ---
 		*/
 		void Init(void);
+		
+		/*
+		USAGE: Allocates member field data and initializes the octant.
+		ARGUMENTS: ---
+		OUTPUT: ---
+		*/
+		void InitVariables(void);
 
 		/*
 		USAGE: Creates the list of all leaves that contain objects.
@@ -114,10 +115,10 @@ namespace Simplex {
 		USAGE: Constructs an octant at a center point using varying sides.
 		ARGUMENTS:
 		- vector3 a_v3Center -> Center of the octant in global space.
-		- float a_v3Size -> Size of each of the sides of the octant volume.
+		- float a_v3HalfWidths -> Half size of each of the sides of the octant volume.
 		OUTPUT: class object.
 		*/
-		MyOctant(vector3 a_v3Center, vector3 a_v3Size);
+		MyOctant(vector3 a_v3Center, vector3 a_v3HalfWidths);
 
 #pragma endregion
 
@@ -307,7 +308,6 @@ namespace Simplex {
 		void AssignID(void);
 
 #pragma endregion
-
 
 	};
 } // namespace Simplex
