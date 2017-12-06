@@ -28,21 +28,27 @@ namespace Simplex {
 		// Default minimum size.
 		const static uint DMIN_SIZE = 5;
 
+		// Default max processes.
+		const static uint DMAX_PROCESSES = 50;
+
 #pragma endregion
 
 #pragma region // 	Static Members
 
 		// Stores the number of octants that have been instantiated.
-		static uint m_uOctantCount;
+		static uint sOctantCount;
 
 		// Stores the maximum level an octant is allowed to go.
-		static uint m_uDepthThreshold;
+		static uint sDepthThreshold;
 
 		// Stores the ideal entity count.
-		static uint m_uEntityThreshold;
+		static uint sEntityThreshold;
 
 		// Minimum octant dimension size.
-		static uint m_uMinimumSize;
+		static uint sMinimumSize;
+
+		// Maximum queue processes.
+		static uint sMaximumProcesses;
 
 		/*
 		Usage: Sets the minimum size of all octants.
@@ -65,6 +71,13 @@ namespace Simplex {
 		*/
 		static void SetMaximumCapacity(uint a_uEntityThreshold);
 
+		/*
+		Usage: Sets the maximum entity queue process count.
+		Arguments: uint a_uMaximumProcesses -> Input value to set.
+		Output: ---
+		*/
+		static void SetMaximumProcesses(uint a_uMaximumProcesses);
+
 #pragma endregion
 
 	private:
@@ -75,15 +88,25 @@ namespace Simplex {
 		uint m_uDepth = 0;	// The current subdivision level 
 		uint m_uChildCount = 0;	// Number of children in the octant.
 				
+		vector3 m_v3Active = C_YELLOW; // Active color (when the octant or its children contain entities).
+		vector3 m_v3Inactive = C_WHITE; // Inactive color (when the octant has no children and is empty).
+
 		vector3 m_v3HalfWidths = ZERO_V3;	// Contains the half-widths for each of the three axes.
 		vector3 m_v3Center = ZERO_V3; // Stores the center point of the octant. (Global)
 		vector3 m_v3Minimum = ZERO_V3; // Stores the minimum vector of the octant. (Global)
 		vector3 m_v3Maximum = ZERO_V3; // Stores the maximum vector of the octant. (Global)
 		
-		std::vector<uint> m_lEntityQueue; // Queue of entities to add on the next update.
-		std::vector<uint> m_lEntities; // List of entities contained within the octant.
+		// Queue of entities to add on the next update.
+		std::deque<uint> m_lEntityQueue; 
 
-		bool m_bEnabled = false; // Octant enabled. (Read on the root octant).
+		// We use a set to take advantage of it's automatic handling of 
+		// List of entities contained within the octant.
+		std::set<uint> m_lEntities; 
+
+		// Reference to list of nodes that will contain objects.
+		std::vector<MyOctant*> m_lActiveChildren; 
+
+		bool m_bEnabled = true; // Octant enabled. (Read on the root octant).
 		bool m_bVisibleOBB = false; // Visibility of the octant bounding box.
 
 #pragma endregion
@@ -93,10 +116,9 @@ namespace Simplex {
 		MeshManager* m_pMeshManager = nullptr; // Mesh manager reference.
 		MyEntityManager* m_pEntityManager = nullptr; // Entity manager reference.		
 	
-		MyOctant* m_pParent = nullptr; // Parent octant.		
-		MyOctant* m_pChild[8]; // Will store the children of the current octant.		
+		MyOctant* m_pParent = nullptr; // Parent octant.			
 		MyOctant* m_pRoot = nullptr; // Reference to the root octant.
-		std::vector<MyOctant*> m_lActiveChildren; // Reference to list of nodes that will contain objects.
+		MyOctant* m_pChild[8]; // Will store the children of the current octant.	
 
 #pragma endregion
 
@@ -324,10 +346,24 @@ namespace Simplex {
 		USAGE: Sets the octant reference at the specified index to the input value (if possible).
 		ARGUMENTS:
 		- uint a_uChild -> index of the child [0, 7].
-		- MyOctant const* a_pChild -> const pointer child to add.
+		- MyOctant* const a_pChild -> pointer child to add.
 		OUTPUT: ---
 		*/
-		void SetChild(uint a_uChild, MyOctant const* a_pChild);
+		void SetChild(uint a_uChild, MyOctant* const a_pChild);
+
+		/*
+		USAGE: Set the active color of the octant.
+		ARGUMENTS: vector3 a_v3Color -> Input color value to assign.
+		OUTPUT: ---
+		*/
+		void SetActiveColor(vector3 a_v3Color);
+
+		/*
+		USAGE: Set the inactive color of the octant.
+		ARGUMENTS: vector3 a_v3Color -> Input color value to assign.
+		OUTPUT: ---
+		*/
+		void SetInactiveColor(vector3 a_v3Color);
 
 #pragma endregion
 
@@ -396,10 +432,51 @@ namespace Simplex {
 		*/
 		uint GetEntityCount(void) const;
 
+		/*
+		USAGE: Get the active color of the octant.
+		ARGUMENTS: ---
+		OUTPUT: Returns the color.
+		*/
+		vector3 GetActiveColor(void) const;
+
+		/*
+		USAGE: Get the inactive color of the octant.
+		ARGUMENTS: ---
+		OUTPUT: Returns the color.
+		*/
+		vector3 GetInactiveColor(void) const;
+
 #pragma endregion
 
 #pragma region // 	Service Methods
 
+		/*
+		USAGE: Adds a collection of entities to the update queue.
+		ARGUMENTS: uint a_lIndices -> Indices of the entities to be added.
+		OUTPUT: ---
+		*/
+		void AddEntities(std::vector<uint> a_lIndices);
+
+		/*
+		USAGE: Adds a single entity to the update queue.
+		ARGUMENTS: uint a_uIndex -> Index of the entity to be added.
+		OUTPUT: ---
+		*/
+		void AddEntity(uint a_uIndex);
+
+		/*
+		USAGE: Adds (or updates) all entities present in the queue.
+		ARGUMENTS: ---
+		OUTPUT: ---
+		*/
+		void AddQueue(void);
+
+		/*
+		USAGE: Adds entities from queue, updates min and max vectors, updates center, updates halfwidths, and clears the queue.
+		ARGUMENTS: ---
+		OUTPUT: ---
+		*/
+		void UpdateTree(void);
 		
 		/*
 		USAGE: Display the MyOctant object, specified by index, including the objects underneath. (Used to display children).
@@ -408,7 +485,7 @@ namespace Simplex {
 		- vector3 a_v3color = C_YELLOW -> Color to be displayed in.
 		OUTPUT: ---
 		*/
-		void Display(uint a_uIndex, vector3 a_v3color = C_YELLOW);
+		void Display(uint a_uIndex, vector3 a_v3Color = C_YELLOW);
 		
 		/*
 		USAGE: Displays the MyOctant volume in the color specified.
@@ -416,7 +493,7 @@ namespace Simplex {
 		OUTPUT: ---
 		*/
 		void Display(vector3 a_v3Color = C_YELLOW);
-		
+
 		/*
 		USAGE: Displays the non-empty leaf nodes in the octree.
 		ARGUMENTS:
@@ -431,6 +508,13 @@ namespace Simplex {
 		OUTPUT: ---
 		*/
 		void ClearEntityList(void);
+
+		/*
+		USAGE: Deletes each child octant in the array and sets array back to an empty one.
+		ARGUMENTS: ---
+		OUTPUT: ---
+		*/
+		void ClearChildren(void);
 
 		/*
 		USAGE: Allocates 8 smaller octants in the child pointers.
