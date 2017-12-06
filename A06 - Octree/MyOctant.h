@@ -96,12 +96,9 @@ namespace Simplex {
 		vector3 m_v3Minimum = ZERO_V3; // Stores the minimum vector of the octant. (Global)
 		vector3 m_v3Maximum = ZERO_V3; // Stores the maximum vector of the octant. (Global)
 		
-		// Queue of entities to add on the next update.
-		std::deque<uint> m_lEntityQueue; 
-
-		// We use a set to take advantage of it's automatic handling of 
-		// List of entities contained within the octant.
-		std::set<uint> m_lEntities; 
+		// We use a set to take advantage of it's automatic handling of duplicates.		
+		std::set<uint> m_lEntities;  // List of entities contained within the octant.	
+		std::set<uint> m_lOctreeEntities; // List of all entities contained within the octree.
 
 		// Reference to list of nodes that will contain objects.
 		std::vector<MyOctant*> m_lActiveChildren; 
@@ -171,20 +168,22 @@ namespace Simplex {
 		/*
 		USAGE: Constructs an octant at a center point using uniform sides.
 		ARGUMENTS: 
+		- MyOctant* a_pParent -> Parent octant pointer.
 		- vector3 a_v3Center -> Center of the octant in global space.
 		- float a_fSize -> Size of each of the sides of the octant volume.
 		OUTPUT: class object.
 		*/
-		MyOctant(vector3 a_v3Center, float a_fSize);
+		MyOctant(MyOctant* a_pParent, vector3 a_v3Center, float a_fSize);
 
 		/*
 		USAGE: Constructs an octant at a center point using varying sides.
 		ARGUMENTS:
+		- MyOctant* a_pParent -> Parent octant pointer.
 		- vector3 a_v3Center -> Center of the octant in global space.
 		- float a_v3HalfWidths -> Half size of each of the sides of the octant volume.
 		OUTPUT: class object.
 		*/
-		MyOctant(vector3 a_v3Center, vector3 a_v3HalfWidths);
+		MyOctant(MyOctant* a_pParent, vector3 a_v3Center, vector3 a_v3HalfWidths);
 
 #pragma endregion
 
@@ -292,9 +291,16 @@ namespace Simplex {
 #pragma endregion
 
 #pragma region // 	Mutator Methods
+		
+		/*
+		Usage: Sets the octant ID.
+		Arguments: uint a_uID -> Octant ID to assign. If -1, gets ID based off of the octant count.
+		Output: ---
+		*/
+		void SetID(uint a_uID);
 
 		/*
-		Usage: Sets enabled flag of octant.
+		Usage: Sets visibility of octant OBB.
 		Arguments: bool a_bVisibleOBB -> Input value to set OBB visibility flag to.
 		Output: ---
 		*/
@@ -326,7 +332,7 @@ namespace Simplex {
 		ARGUMENTS: a_v3Center -> Value to set center to.
 		OUTPUT: ---
 		*/
-		void GetCenterGlobal(vector3 a_v3Center);
+		void SetCenterGlobal(vector3 a_v3Center);
 
 		/*
 		USAGE: Set the maximum vector in global space.
@@ -352,6 +358,20 @@ namespace Simplex {
 		void SetChild(uint a_uChild, MyOctant* const a_pChild);
 
 		/*
+		USAGE: Sets the octant's parent.
+		ARGUMENTS: MyOctant* const a_pParent -> pointer parent to set.
+		OUTPUT: ---
+		*/
+		void SetParent(MyOctant* const a_pParent);
+
+		/*
+		USAGE: Sets up reference to the root octant by traversing through the tree.
+		ARGUMENTS: ---
+		OUTPUT: ---
+		*/
+		void SetRoot(void);
+
+		/*
 		USAGE: Set the active color of the octant.
 		ARGUMENTS: vector3 a_v3Color -> Input color value to assign.
 		OUTPUT: ---
@@ -368,6 +388,13 @@ namespace Simplex {
 #pragma endregion
 
 #pragma region // 	Accessor Methods
+
+		/*
+		USAGE: Gets this octant's ID.
+		ARGUMENTS: ---
+		OUTPUT: Returns the ID of the octant.
+		*/
+		uint GetID(void) const;
 
 		/*
 		USAGE: Gets this octant's size.
@@ -419,6 +446,13 @@ namespace Simplex {
 		MyOctant* GetParent(void) const;
 		
 		/*
+		USAGE: Returns the root.
+		ARGUMENTS: ---
+		OUTPUT: MyOctant object (root of this octant's octree).
+		*/
+		MyOctant& GetRoot(void);
+
+		/*
 		USAGE: Return the total number of octants in the world.
 		ARGUMENTS: ---
 		OUTPUT: ---
@@ -449,28 +483,21 @@ namespace Simplex {
 #pragma endregion
 
 #pragma region // 	Service Methods
-
+		
 		/*
-		USAGE: Adds a collection of entities to the update queue.
+		USAGE: Adds a collection of entities to the tree.
 		ARGUMENTS: uint a_lIndices -> Indices of the entities to be added.
 		OUTPUT: ---
 		*/
-		void AddEntities(std::vector<uint> a_lIndices);
+		void AddEntities(std::set<uint> a_lIndices);
 
 		/*
-		USAGE: Adds a single entity to the update queue.
+		USAGE: Adds a single entity to the tree.
 		ARGUMENTS: uint a_uIndex -> Index of the entity to be added.
 		OUTPUT: ---
 		*/
 		void AddEntity(uint a_uIndex);
-
-		/*
-		USAGE: Adds (or updates) all entities present in the queue.
-		ARGUMENTS: ---
-		OUTPUT: ---
-		*/
-		void AddQueue(void);
-
+		
 		/*
 		USAGE: Adds entities from queue, updates min and max vectors, updates center, updates halfwidths, and clears the queue.
 		ARGUMENTS: ---
@@ -532,10 +559,24 @@ namespace Simplex {
 		
 		/*
 		USAGE: Creates a tree using subdivisions, the max number of objects and levels.
-		ARGUMENTS: uint a_uSubdivisionThreshold = 3 -> Sets the maximum level of the tree it is constructing.
+		ARGUMENTS: uint a_uSubdivisionThreshold -> Sets the maximum level of the tree it is constructing.
 		OUTPUT: ---
 		*/
-		void ConstructTree(uint a_uSubdivisionThreshold = 3);
+		void ConstructTree(uint a_uSubdivisionThreshold);
+
+		/*
+		USAGE: Creates a tree using global settings, with an input entities.
+		ARGUMENTS: std::set<uint> a_uEntities -> Set of entity IDs to construct the tree with.
+		OUTPUT: ---
+		*/
+		void ConstructTree(std::set<uint> a_uEntities);
+
+		/*
+		USAGE: Creates a tree using global settings.
+		ARGUMENTS: ---
+		OUTPUT: ---
+		*/
+		void ConstructTree();
 		
 		/*
 		USAGE: Traverse the tree to the leafs and sets the objects in them to the index.
@@ -543,6 +584,27 @@ namespace Simplex {
 		OUTPUT: ---
 		*/
 		void AssignID(void);
+		
+		/*
+		USAGE: Returns a vector that represents the center.
+		ARGUMENTS: std::vector<vector3> points -> Contains a set of vector3 points.
+		OUTPUT: Returns the center vector.
+		*/
+		vector3 FindCenter(std::vector<vector3> points);
+
+		/*
+		USAGE: Returns a vector that represents the maximum extent.
+		ARGUMENTS: std::vector<vector3> points -> Contains a set of vector3 points.
+		OUTPUT: Returns the maximum vector.
+		*/
+		vector3 FindMaximum(std::vector<vector3> points);
+
+		/*
+		USAGE: Returns a vector that represents the minimum extent.
+		ARGUMENTS: std::vector<vector3> points -> Contains a set of vector3 points.
+		OUTPUT: Returns the minimum vector.
+		*/
+		vector3 FindMinimum(std::vector<vector3> points);
 
 #pragma endregion
 
@@ -550,6 +612,45 @@ namespace Simplex {
 } // namespace Simplex
 
 #endif //__MY_OCTANT_H_
+
+#pragma region Octree Pseudocode.
+
+/*
+	Octree:
+	-> Create the root octant.
+		-> [Set the minimum size (half widths) for subdivision.]
+			-> [Validate as a vector3 where every dimension is positive and non-zero.]
+		-> [Set the maximum subdivision level.]
+			-> [Validate as a positive, non-zero value (min: 1).]
+		-> [Set the maximum/ideal entity count.]
+			-> [Validate as a positive, non-zero value (min: 1).]
+
+	-> When adding entities to the octree:
+		-> [Check if entity is within the octant's bounds.]
+		-> If true,
+			-> [Check if the octant has any children.]
+			-> If true,
+				-> [Attempt to add octant to all children.]
+			-> Else,
+				-> [Check if the octant hasn't met the maximum subdivision threshold.]
+				-> If true, // May need to subdivide.
+					-> [Check if over the maximum/ideal entity count.]
+					-> If true, // May need to subdivide.
+						-> [Check if the octant is big enough to subdivide.]
+						-> If true, // Subdivide.
+							-> [Subdivide the octant.]
+							-> [Attempt to add octant to all children.]
+						-> Else,
+							-> [Add entity to the octant's list.]
+					-> Else, // No need to subdivide.
+						-> [Add entity to the octant's list.]
+				-> Else, // No need to subdivide.
+					-> [Add entity to the octant's list.]
+		-> Else,
+			-> [Do not add the entity to the octant's list. (EXIT).]
+*/
+
+#pragma endregion
 
   /*
   USAGE:

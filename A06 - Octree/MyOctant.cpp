@@ -16,7 +16,7 @@
 	Octree:
 	-> Create the root octant.
 		-> [Set the minimum size (half widths) for subdivision.]
-			-> [Validate as a vector3 where every dimension is positive and non-zezo.]
+			-> [Validate as a vector3 where every dimension is positive and non-zero.]
 		-> [Set the maximum subdivision level.]
 			-> [Validate as a positive, non-zero value (min: 1).]
 		-> [Set the maximum/ideal entity count.]
@@ -110,7 +110,7 @@ namespace Simplex {
 #pragma region //	Constructor(s)
 
 	/*
-	USAGE: Constructor will create an octant containing all the Entities that the EntityManager currently contains.
+	USAGE: Constructor will create an octant (root) containing all the Entities that the EntityManager currently contains.
 	ARGUMENTS:
 	- uint a_uSubdivisionLimit = 2 -> Sets the maximum level of subdivisions.
 	- uint a_uIdealEntityCount = 5 -> Sets the ideal level of objects per octant.
@@ -118,66 +118,78 @@ namespace Simplex {
 	OUTPUT: class object.
 	*/
 	MyOctant::MyOctant(uint a_uSubdivisionLimit, uint a_uIdealEntityCount, uint a_uMinimumSize) 
-	{
-		// Validate the input parameters.
-		if (a_uSubdivisionLimit <= 0 || a_uSubdivisionLimit == -1) { a_uSubdivisionLimit = DMAX_DEPTH; }
-		if (a_uIdealEntityCount <= 0 || a_uIdealEntityCount == -1) { a_uIdealEntityCount = DMAX_CAPACITY; }
-		if (a_uMinimumSize <= 0 || a_uMinimumSize == -1) { a_uMinimumSize = DMIN_SIZE; }
-		
+	{		
 		// Assign static members.
-		MyOctant::sOctantCount++;
-		MyOctant::sDepthThreshold = a_uSubdivisionLimit;
-		MyOctant::sEntityThreshold = a_uIdealEntityCount;
-		MyOctant::sMinimumSize = a_uMinimumSize;
+		this->SetMaximumDepth(a_uSubdivisionLimit);
+		this->SetMaximumCapacity(a_uIdealEntityCount);
+		this->SetMinimumSize(a_uMinimumSize);
 
 		// Initialize the octant.
 		this->Init();
 
-		// TODO.
-		// Add additional code for reading in entities.
+		// Increment counter.
+		MyOctant::sOctantCount++;
+
+		// Set the root member values.
+		this->SetID(0);
+		this->SetParent(nullptr);
+		this->SetRoot();
+		this->m_uDepth = 0;
+		
+		// Construct the tree.
+		ConstructTree();		
 	}
 
 	/*
 	USAGE: Constructs an octant at a center point using uniform sides.
 	ARGUMENTS:
+	- MyOctant* a_pParent -> Parent octant pointer.
 	- vector3 a_v3Center -> Center of the octant in global space.
 	- float a_fSize -> Size of each of the sides of the octant volume.
 	OUTPUT: class object.
 	*/
-	MyOctant::MyOctant(vector3 a_v3Center, float a_fSize) 
+	MyOctant::MyOctant(MyOctant* a_pParent, vector3 a_v3Center, float a_fSize) 
 	{
-		// Validate the input parameters.
-		if (a_fSize <= 0) { a_fSize = MyOctant::sMinimumSize; }
-		 
-		// Assign static members.
-		MyOctant::sOctantCount++;
-
 		// Initialize the octant.
 		this->Init();
 
+		// Assign static members.
+		MyOctant::sOctantCount++;
+
+		// Set the octant values.
+		this->SetID(-1); // Gets the most recent ID value.
+		this->SetParent(a_pParent);
+		this->SetRoot();
+				
 		// Assign input values. (Overwrites initialized values).
-		this->m_v3Center = a_v3Center; // Assign the global space center.
-		this->m_v3HalfWidths = vector3(a_fSize / 2); // Assign half width as same for each of the three dimensions.
+		this->SetCenterGlobal(a_v3Center); // Assign the global space center.
+		this->SetSize(a_fSize); // Assign half width as same for each of the three dimensions.
 	}
 
 	/*
 	USAGE: Constructs an octant at a center point using varying sides.
 	ARGUMENTS:
+	- MyOctant* a_pParent -> Parent octant pointer.
 	- vector3 a_v3Center -> Center of the octant in global space.
 	- float a_v3HalfWidths -> Half size of each of the sides of the octant volume.
 	OUTPUT: class object.
 	*/
-	MyOctant::MyOctant(vector3 a_v3Center, vector3 a_v3HalfWidths)
+	MyOctant::MyOctant(MyOctant* a_pParent, vector3 a_v3Center, vector3 a_v3HalfWidths)
 	{
-		// Assign static members.
-		MyOctant::sOctantCount++;
-
 		// Initialize the octant.
 		this->Init();
 
-		// Assign input values. (Overwrite initialized values).
-		this->m_v3Center = a_v3Center;
-		this->m_v3HalfWidths = a_v3HalfWidths;
+		// Assign static members.
+		MyOctant::sOctantCount++;
+
+		// Set the octant values.
+		this->SetID(-1); // Gets the most recent ID value.
+		this->SetParent(a_pParent);
+		this->SetRoot();
+
+		// Assign input values. (Overwrites initialized values).
+		this->SetCenterGlobal(a_v3Center); // Assign the global space center.
+		this->SetHalfWidths(a_v3HalfWidths); // Assign half width as same for each of the three dimensions.
 	}
 
 #pragma endregion
@@ -215,7 +227,7 @@ namespace Simplex {
 		this->m_v3Minimum = other.m_v3Minimum;
 		
 		// Collections.
-		this->m_lEntityQueue = other.m_lEntityQueue;
+		this->m_lOctreeEntities = other.m_lOctreeEntities;
 		this->m_lEntities = other.m_lEntities;
 		this->m_lActiveChildren = other.m_lActiveChildren;
 
@@ -227,7 +239,7 @@ namespace Simplex {
 		this->m_pChild[8] = new MyOctant[8];
 		if (!other.IsLeaf()) {
 			// If the other has children, copy them over.
-			for (uint i = 0; i < 8; i++)
+			for (uint i = 0; i < m_uChildCount; i++)
 			{
 				this->m_pChild[i] = other.m_pChild[i];
 			}
@@ -337,9 +349,9 @@ namespace Simplex {
 		std::swap(m_v3Active, other.m_v3Active);
 		std::swap(m_v3Inactive, other.m_v3Inactive);
 				
-		// Swap collections.
+		// Swap collections.;
+		std::swap(m_lOctreeEntities, other.m_lOctreeEntities);
 		std::swap(m_lEntities, other.m_lEntities);
-		std::swap(m_lEntityQueue, other.m_lEntityQueue);
 		std::swap(m_lActiveChildren, other.m_lActiveChildren);
 		std::swap(m_pChild, other.m_pChild);
 
@@ -388,7 +400,6 @@ namespace Simplex {
 		m_pRoot = nullptr; // DO NOT DELETE.
 
 		// Collections.
-		this->m_lEntityQueue.clear();
 		this->m_lActiveChildren.clear();
 	}
 
@@ -430,13 +441,13 @@ namespace Simplex {
 		m_v3Inactive = C_WHITE;
 
 		// Vector3s.
-		m_v3HalfWidths = ZERO_V3;
-		m_v3Center = ZERO_V3;
-		m_v3Minimum = ZERO_V3;
-		m_v3Maximum = ZERO_V3;
+		this->SetHalfWidths(ZERO_V3);
+		this->SetCenterGlobal(ZERO_V3);
+		this->SetMinGlobal(ZERO_V3);
+		this->SetMaxGlobal(ZERO_V3);
 
 		// Collections.
-		m_lEntityQueue = std::deque<uint>();
+		m_lOctreeEntities = std::set<uint>();
 		m_lEntities = std::set<uint>();
 		m_lActiveChildren = std::vector<MyOctant*>();
 
@@ -446,7 +457,7 @@ namespace Simplex {
 						   
 		// Creates a pointer array that will hold 8 octants.
 		m_pChild[8] = { }; // Sets it to null.
-		for (uint i = 0; i < 8; i++) 
+		for (uint i = 0; i < m_uChildCount; i++) 
 		{
 			// Fill array with nullptrs.
 			m_pChild[i] = nullptr;
@@ -481,7 +492,7 @@ namespace Simplex {
 			}
 
 			// Call construct list on all children.
-			for (uint i = 0; i < 8; i++) 
+			for (uint i = 0; i < m_uChildCount; i++) 
 			{
 				// If child isn't a nullptr, call the construct list function.
 				MyOctant* child = m_pChild[i];
@@ -603,9 +614,21 @@ namespace Simplex {
 #pragma endregion
 
 #pragma region //	Mutator Methods
+	
+	/*
+	Usage: Sets the octant ID.
+	Arguments: uint a_uID -> Octant ID to assign. If -1, gets ID based off of the octant count.
+	Output: ---
+	*/
+	void MyOctant::SetID(uint a_uID)
+	{
+		if (a_uID < 0 || a_uID == -1) { a_uID = (MyOctant::sOctantCount - 1); }
+		if (IsRoot()) { m_uID = 0; }
+		else { m_uID = a_uID; }
+	}
 
 	/*
-	Usage: Sets enabled flag of octant.
+	Usage: Sets visibility of octant OBB.
 	Arguments: bool a_bVisibleOBB -> Input value to set OBB visibility flag to.
 	Output: ---
 	*/
@@ -631,7 +654,7 @@ namespace Simplex {
 	*/
 	void MyOctant::SetSize(float a_fSize)
 	{
-		if (a_fSize < sMinimumSize) { a_fSize = sMinimumSize; }
+		if (a_fSize < sMinimumSize) { a_fSize = static_cast<float>(sMinimumSize); }
 		float a_fHalfSize = a_fSize / 2;
 		this->m_v3HalfWidths = vector3(a_fHalfSize);
 	}
@@ -659,7 +682,7 @@ namespace Simplex {
 	ARGUMENTS: a_v3Center -> Value to set center to.
 	OUTPUT: ---
 	*/
-	void MyOctant::GetCenterGlobal(vector3 a_v3Center)
+	void MyOctant::SetCenterGlobal(vector3 a_v3Center)
 	{
 		float min = FLT_EPSILON;
 		if (a_v3Center == ZERO_V3) { a_v3Center = vector3(min); }
@@ -723,6 +746,29 @@ namespace Simplex {
 			m_pChild[a_uChild] = a_pChild;
 		}
 	}
+	
+	/*
+	USAGE: Sets the octant's parent.
+	ARGUMENTS: MyOctant* const a_pParent -> pointer parent to set.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetParent(MyOctant* const a_pParent) 
+	{
+		this->m_pParent = a_pParent;
+		if (m_pParent != nullptr) {
+			this->m_uDepth = m_pParent->m_uDepth + 1; // Increment the depth based on the parent.
+		}
+	}
+
+	/*
+	USAGE: Sets up reference to the root octant by traversing through the tree.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::SetRoot(void) 
+	{
+		this->m_pRoot = &GetRoot();
+	}
 
 	/*
 	USAGE: Set the active color of the octant.
@@ -747,6 +793,16 @@ namespace Simplex {
 #pragma endregion
 
 #pragma region //	Accessor Methods
+	
+	/*
+	USAGE: Gets this octant's ID.
+	ARGUMENTS: ---
+	OUTPUT: Returns the ID of the octant.
+	*/
+	uint MyOctant::GetID(void) const 
+	{
+		return this->m_uID;
+	}
 
 	/*
 	USAGE: Gets this octant's size.
@@ -819,8 +875,8 @@ namespace Simplex {
 				// If this octant has children (aka, is not a leaf).
 				return m_pChild[a_uChild];
 			}
-			return nullptr;
 		}
+		return nullptr;
 	}
 
 	/*
@@ -830,12 +886,25 @@ namespace Simplex {
 	*/
 	MyOctant* MyOctant::GetParent(void) const
 	{
-		// Check if this is the root.
-		if (!IsRoot()) 
+		// Will return a nullptr if the root.
+		return m_pParent;
+	}
+
+	/*
+	USAGE: Returns the root.
+	ARGUMENTS: ---
+	OUTPUT: MyOctant object (root of this octant's octree).
+	*/
+	MyOctant& MyOctant::GetRoot(void)
+	{
+		if(IsRoot()) 
 		{
-			return m_pParent;
+			return (*this);
 		}
-		return nullptr;
+		else 
+		{
+			return this->GetParent()->GetRoot();
+		}
 	}
 
 	/*
@@ -883,21 +952,22 @@ namespace Simplex {
 #pragma region //	Service Methods
 
 	/*
-	USAGE: Adds a collection of entities to the update queue.
+	USAGE: Adds a collection of entities to the octant.
 	ARGUMENTS: uint a_lIndices -> Indices of the entities to be added.
 	OUTPUT: ---
 	*/
-	void MyOctant::AddEntities(std::vector<uint> a_lIndices)
+	void MyOctant::AddEntities(std::set<uint> a_lIndices)
 	{
 		// Add entity for each element in the collection.
-		for (uint i = 0; i < a_lIndices.size(); i++) 
+		std::set<uint>::iterator i;
+		for (i = a_lIndices.begin(); i != a_lIndices.end(); i++) 
 		{
-			this->AddEntity(a_lIndices[i]);
+			this->AddEntity(*i);
 		}
 	}
 
 	/*
-	USAGE: Adds a single entity to the update queue.
+	USAGE: Adds a single entity to the octant.
 	ARGUMENTS: uint a_uIndex -> Index of the entity to be added.
 	OUTPUT: ---
 	*/
@@ -906,8 +976,67 @@ namespace Simplex {
 		// Confirms index is potentially valid.
 		if (a_uIndex < 0 || a_uIndex == -1) { return; }
 
-		// Adds index to queue.
-		this->m_lEntityQueue.push_front(a_uIndex);
+		// Check if the entity is within the bounds.
+		if (this->IsColliding(a_uIndex)) 
+		{
+			// Check if the octant has any children.
+			if (!IsLeaf()) 
+			{
+				// Attempt to add entity to each of its children.
+				for (uint i = 0; i < m_uChildCount; i++) 
+				{
+					// The recursive attempt to add the entity to the child.
+					this->m_pChild[i]->AddEntity(a_uIndex);
+				}
+			}
+			else 
+			{
+				// If there are no children, check if the octant has met the maximum subdivision threshold.
+				if (this->m_uDepth < sDepthThreshold) 
+				{
+					// If it has not met the subdivision threshold, check it it's met the ideal entity count.
+					if (this->ContainsMoreThan(sEntityThreshold)) 
+					{
+						// If it is big enough to subdivide.
+						if (this->GetSize() >= sMinimumSize) 
+						{
+							// All the flags for subdivision have passed, so, we shall subdivide.
+							this->Subdivide();
+
+							// Attempt to add entity to each of its children.
+							for (uint i = 0; i < m_uChildCount; i++)
+							{
+								// The recursive attempt to add the entity to the child.
+								this->m_pChild[i]->AddEntity(a_uIndex);
+							}
+						}
+						else 
+						{
+							// Too small to subdivide. Add to this entity.
+							this->m_lEntities.insert(a_uIndex);
+							return; // Exit.
+						}
+					}
+					else 
+					{
+						// Doesn't contain the entity threshold. Add to this entity.
+						this->m_lEntities.insert(a_uIndex);
+						return; // Exit.
+					}
+				}
+				else 
+				{
+					// Has met (or exceeded) the depth threshold and cannot be subdivided anymore. Add to this entity.
+					this->m_lEntities.insert(a_uIndex);
+					return; // Exit.
+				}
+			}
+		}
+		else 
+		{
+			// If not colliding with the octant, simply return as we don't need to query any children.
+			return;
+		}
 	}
 
 	/*
@@ -915,7 +1044,7 @@ namespace Simplex {
 	ARGUMENTS: ---
 	OUTPUT: ---
 	*/
-	void MyOctant::AddQueue(void)
+	/* void MyOctant::AddQueue(void)
 	{
 		// Check if a queue even exists.
 		if (m_lEntityQueue.empty()) { return; }
@@ -954,7 +1083,7 @@ namespace Simplex {
 		// Enabling this variable early out means we can batch process entities in groups at a time.
 		// When we enact a process limit, however, it means there may be some frames where collision detection doesn't take place.
 		// This means we'll want to add entities in a priority fashion.
-	}
+	} */
 
 	// TODO : Update Tree
 
@@ -984,7 +1113,7 @@ namespace Simplex {
 		else
 		{
 			// Continue searching for children.
-			for (uint i = 0; i < 8; i++) 
+			for (uint i = 0; i < m_uChildCount; i++) 
 			{
 				m_pChild[i]->Display(a_uIndex, a_v3Color);
 			}
@@ -1010,7 +1139,7 @@ namespace Simplex {
 		else
 		{
 			// If not a leaf, it will continue to perform recursion.
-			for (uint i = 0; i < 8; i++) 
+			for (uint i = 0; i < m_uChildCount; i++) 
 			{
 				// Display child volumes underneath this one.
 				m_pChild[i]->Display(a_v3Color);
@@ -1039,7 +1168,7 @@ namespace Simplex {
 		else 
 		{
 			// If it has children (ie. not a leaf), call this on its children.
-			for (uint i = 0; i < 8; i++)
+			for (uint i = 0; i < m_uChildCount; i++)
 			{
 				// Display leaves in this branch.
 				m_pChild[i]->DisplayLeafs(a_v3Color);
@@ -1064,7 +1193,7 @@ namespace Simplex {
 		if (!IsLeaf()) 
 		{
 			// If there are children, clear the entity list for each child octant.
-			for (uint i = 0; i < 8; i++) 
+			for (uint i = 0; i < m_uChildCount; i++) 
 			{
 				// Clear entity list in child.
 				m_pChild[i]->ClearEntityList();
@@ -1082,14 +1211,16 @@ namespace Simplex {
 		if (!IsLeaf())
 		{
 			// If there are children, delete them.
-			for (uint i = 0; i < 8; i++)
+			for (uint i = 0; i < m_uChildCount; i++)
 			{
 				// Delete each of the elements in the array.
 				m_pChild[i]->ClearChildren();
-				m_pChild[i]->m_uChildCount = 0;
 				delete m_pChild[i];
 				m_pChild[i] = nullptr; // We need to do this so we can reuse the array.
 			}
+
+			// Set child count to zero.
+			m_uChildCount = 0;
 		}
 	}
 
@@ -1100,7 +1231,48 @@ namespace Simplex {
 	*/
 	void MyOctant::Subdivide(void)
 	{
-		// TODO.
+		// Check if there are children already.
+		if (IsLeaf()) {
+
+			// Set the child count to 8.
+			this->m_uChildCount = 8;
+
+			// Calculate the centers for the eight cubes.
+			/*
+				// The centers:
+				// o = Origin (center of original octant).
+				// a = o + half.x + half.y - half.z
+				// b = o + half.x + half.y + half.z
+				// c = o + half.x - half.y - half.z
+				// d = o + half.x - half.y + half.z
+				// a = o - half.x + half.y - half.z
+				// b = o - half.x + half.y + half.z
+				// c = o - half.x - half.y - half.z
+				// d = o - half.x - half.y + half.z
+			*/
+			vector3 center = this->GetCenterGlobal();
+			vector3 hw = this->GetHalfWidths();
+			vector3 centers[8] = {
+				center + vector3(hw.x, hw.y, -hw.z),
+				center + vector3(hw.x, hw.y, hw.z),
+				center + vector3(hw.x, -hw.y, -hw.z),
+				center + vector3(hw.x, -hw.y, hw.z),
+				center + vector3(-hw.x, hw.y, -hw.z),
+				center + vector3(-hw.x, hw.y, hw.z),
+				center + vector3(-hw.x, -hw.y, -hw.z),
+				center + vector3(-hw.x, -hw.y, hw.z)
+			}; // Collection of centers.
+
+			// Halve the half widths to get the half widths of the new subdivisions.
+			hw = hw / 2.0f;
+
+			// Add the subdivisions as children.
+			for (uint i = 0; i < m_uChildCount; i++)
+			{
+				// Create a child, from one of the eight calculated centers, using a consistent half width vector.
+				this->m_pChild[i] = new MyOctant(this, centers[i], hw);
+			}
+		}
 	}
 
 	/*
@@ -1110,6 +1282,7 @@ namespace Simplex {
 	*/
 	void MyOctant::KillBranches(void)
 	{
+		// Just a wrapper function for the ClearChildren method. Either works.
 		this->ClearChildren();
 	}
 
@@ -1120,9 +1293,74 @@ namespace Simplex {
 	*/
 	void MyOctant::ConstructTree(uint a_uSubdivisionThreshold)
 	{
-		// TODO.
+		// Apply setting input.
+		this->SetMaximumDepth(a_uSubdivisionThreshold);
+
+		// Call the construct tree method.
+		this->ConstructTree();
 	}
 
+	/*
+	USAGE: Creates a tree using global settings, with an input entities.
+	ARGUMENTS: std::set<uint> a_uEntities -> Set of entity IDs to construct the tree with.
+	OUTPUT: ---
+	*/
+	void MyOctant::ConstructTree(std::set<uint> a_uEntities)
+	{
+		// Check which node we are in.
+		if (IsRoot()) 
+		{
+			// If we are in the root, we'll need to calculate our new extents.
+			// Grab the points for all of these entities.
+			std::vector<vector3> points = std::vector<vector3>();
+
+			// Add the minimum size min and max vectors, based on the default minimum and maximum sizes.
+			vector3 half = vector3(sMinimumSize / 2);
+			points.push_back(vector3(this->GetCenterGlobal() + half));
+			points.push_back(vector3(this->GetCenterGlobal() - half));
+
+			// Add iterator.
+			std::set<uint>::iterator i;
+			for (i = a_uEntities.begin(); i != a_uEntities.end(); i++) 
+			{
+				points.push_back(m_pEntityManager->GetEntity(*i)->GetRigidBody()->GetMaxGlobal());
+				points.push_back(m_pEntityManager->GetEntity(*i)->GetRigidBody()->GetMinGlobal());
+			}
+
+			// Get the center, maximum, and minimum.
+			this->SetCenterGlobal(this->FindCenter(points));
+			this->SetMaxGlobal(this->FindMaximum(points));
+			this->SetMinGlobal(this->FindMinimum(points));
+
+			// Set the size based on the distance between the vectors.
+			vector3 distance = this->GetMaxGlobal() - this->GetMinGlobal();
+			this->SetSize(distance.length());
+
+			// Add the entities.
+			this->AddEntities(a_uEntities);
+		}
+	}
+
+	/*
+	USAGE: Creates a tree using global settings.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::ConstructTree(void) 
+	{
+		// Create set of entities.
+		std::set<uint> indices = std::set<uint>();
+
+		// Loop through entities.
+		for (uint i = 0; i < m_pEntityManager->GetEntityCount(); i++) 
+		{
+			indices.insert(i);
+		}
+
+		// Call the construct tree method using the global setting for maximum depth.
+		this->ConstructTree(indices);
+	}
+	
 	/*
 	USAGE: Traverse the tree to the leafs and sets the objects in them to the index.
 	ARGUMENTS: ---
@@ -1130,12 +1368,13 @@ namespace Simplex {
 	*/
 	void MyOctant::AssignID(void)
 	{
+		// Assumptions: Our entity set has already been created.
 		// Goal: Set and confirm entity Dimension as being the octant's ID.		 
 		if (!IsLeaf())
 		{
 			// So I found out that the verb is to 'recurse' and not to 'recur', in the context of computer programming.
 			// Recurse on the children if a leaf hasn't been reached.
-			for (uint i = 0; i < 8; i++) 
+			for (uint i = 0; i < m_uChildCount; i++) 
 			{
 				this->m_pChild[i]->AssignID();
 			}
@@ -1149,13 +1388,102 @@ namespace Simplex {
 				std::set<uint>::iterator i; // Iterator.
 				for (i = m_lEntities.begin(); i != m_lEntities.end(); i++) 
 				{
-						
+					// For every entity ID in the set, we'll want to assign a dimension via the manager.
+					this->m_pEntityManager->AddDimension(*i, m_uID);
 				}				
 			}
 
 			// Exit condition: The octant has no child octants (is a leaf).
 			// We do not perform recursion again.
 		}
+	}
+
+	/*
+	USAGE: Returns a vector that represents the center.
+	ARGUMENTS: std::vector<vector3> points -> Contains a set of vector3 points.
+	OUTPUT: Returns the center vector.
+	*/
+	vector3 MyOctant::FindCenter(std::vector<vector3> points)
+	{
+		// Check size of the set.
+		if (points.empty()) { return ZERO_V3; }
+
+		// Create iterator for the set.
+		std::vector<vector3>::iterator i = points.begin();
+
+		// Create storage for result.
+		vector3 center = *i;
+
+		// Loop over the points and find the maximum.
+		for (i = points.begin(); i != points.end(); i++)
+		{
+			center += *i;
+		}
+
+		// Average the vector.
+		float size = points.size();
+		center = center / size;
+
+		// Return the resulting vector.
+		return center;
+	}
+
+	/*
+	USAGE: Returns a vector that represents the maximum extent.
+	ARGUMENTS: std::vector<vector3> points -> Contains a set of vector3 points.
+	OUTPUT: Returns the maximum vector.
+	*/
+	vector3 MyOctant::FindMaximum(std::vector<vector3> points)
+	{
+		// Check size of the set.
+		if (points.empty()) { return ZERO_V3; }
+
+		// Create iterator for the set.
+		std::vector<vector3>::iterator i = points.begin();
+
+		// Create storage for result.
+		vector3 max = *i;
+
+		// Loop over the points and find the maximum.
+		for (i = points.begin(); i != points.end(); i++) 
+		{
+			vector3 value = *i;
+			if (max.x < value.x) { max.x = value.x; }
+			if (max.y < value.y) { max.y = value.y; }
+			if (max.z < value.z) { max.z = value.z; }
+		}
+
+		// Return the resulting vector.
+		return max;
+	}
+
+	/*
+	USAGE: Returns a vector that represents the minimum extent.
+	ARGUMENTS: std::vector<vector3> points -> Contains a set of vector3 points.
+	OUTPUT: Returns the minimum vector.
+	*/
+	vector3 MyOctant::FindMinimum(std::vector<vector3> points)
+	{
+		// Check size of the set.
+		if (points.empty()) { return ZERO_V3; }
+
+		// Create iterator for the set.
+		std::vector<vector3>::iterator i = points.begin();
+
+		// Create storage for result.
+		vector3 min = *i;
+
+		// Loop over the points and find the minimum.
+		for (i = points.begin(); i != points.end(); i++)
+		{
+			vector3 value = *i;
+			if (min.x > value.x) { min.x = value.x; }
+			if (min.y > value.y) { min.y = value.y; }
+			if (min.z > value.z) { min.z = value.z; }
+		}
+
+		// Return the resulting vector.
+		return min;
 	}
 
 #pragma endregion
