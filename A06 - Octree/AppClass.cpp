@@ -2,6 +2,9 @@
 using namespace Simplex;
 void Application::InitVariables(void)
 {
+	// Create the root.
+	// m_pOctree = new MyOctant();
+
 	//Set the position and target of the camera
 	m_pCameraMngr->SetPositionTargetAndUp(
 		vector3(0.0f, 0.0f, 100.0f), //Position
