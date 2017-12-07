@@ -1,0 +1,1455 @@
+
+
+#ifdef _TEST_
+
+namespace Simplex {
+
+#pragma region //	Static Members
+
+	// Set default values for static values.
+	uint MyOctant::sOctantCount = 0;
+	uint MyOctant::sMinimumSize = MyOctant::DMIN_SIZE;
+	uint MyOctant::sDepthThreshold = MyOctant::DMAX_DEPTH;
+	uint MyOctant::sEntityThreshold = MyOctant::DMAX_CAPACITY;
+	uint MyOctant::sMaximumProcesses = MyOctant::DMAX_PROCESSES;
+
+	/*
+	Usage: Sets the minimum size of all octants.
+	Arguments: uint a_uMinimumSize -> Input value to set.
+	Output: ---
+	*/
+	void MyOctant::SetMinimumSize(uint a_uMinimumSize) 
+	{
+		if (a_uMinimumSize <= 0 || a_uMinimumSize == -1) { a_uMinimumSize = MyOctant::DMIN_SIZE; }
+		MyOctant::sMinimumSize = a_uMinimumSize;
+	}
+
+	/*
+	Usage: Sets the maximum subdivision level an octant can have.
+	Arguments: uint a_uDepthThreshold -> Input value to set.
+	Output: ---
+	*/
+	void MyOctant::SetMaximumDepth(uint a_uDepthThreshold) 
+	{
+		if (a_uDepthThreshold <= 0 || a_uDepthThreshold == -1) { a_uDepthThreshold = MyOctant::DMAX_DEPTH; }
+		MyOctant::sDepthThreshold = a_uDepthThreshold;
+	}
+
+	/*
+	Usage: Sets the ideal entity count.
+	Arguments: uint m_uEntityThreshold -> Input value to set.
+	Output: ---
+	*/
+	void MyOctant::SetMaximumCapacity(uint a_uEntityThreshold)
+	{
+		if (a_uEntityThreshold <= 0 || a_uEntityThreshold == -1) { a_uEntityThreshold = MyOctant::DMAX_CAPACITY; }
+		MyOctant::sEntityThreshold = a_uEntityThreshold;
+	}
+
+	/*
+	Usage: Sets the maximum entity queue process count.
+	Arguments: uint a_uMaximumProcesses -> Input value to set.
+	Output: ---
+	*/
+	void MyOctant::SetMaximumProcesses(uint a_uMaximumProcesses)
+	{
+		if (a_uMaximumProcesses <= 0 || a_uMaximumProcesses == -1) { a_uMaximumProcesses = MyOctant::DMAX_PROCESSES; }
+		MyOctant::sMaximumProcesses = a_uMaximumProcesses;
+	}
+
+#pragma endregion
+
+#pragma region //	Constructor(s)
+
+	/*
+	USAGE: Constructor will create an octant (root) containing all the Entities that the EntityManager currently contains.
+	ARGUMENTS:
+	- uint a_uSubdivisionLimit = 2 -> Sets the maximum level of subdivisions.
+	- uint a_uIdealEntityCount = 5 -> Sets the ideal level of objects per octant.
+	- uint a_uMinimumSize = 5 -> Sets the minimum size threshold an octant must have if it is to be subdivided.
+	OUTPUT: class object.
+	*/
+	MyOctant::MyOctant(uint a_uSubdivisionLimit, uint a_uIdealEntityCount, uint a_uMinimumSize) 
+	{		
+		// Assign static members.
+		this->SetMaximumDepth(a_uSubdivisionLimit);
+		this->SetMaximumCapacity(a_uIdealEntityCount);
+		this->SetMinimumSize(a_uMinimumSize);
+
+		// Initialize the octant.
+		this->Init();
+
+		// Increment counter.
+		MyOctant::sOctantCount++;
+
+		// Set the root member values.
+		this->SetID(0);
+		this->SetParent(nullptr);
+		this->SetRoot();
+		this->m_uDepth = 0;	
+
+		this->ToString();
+	}
+
+	/*
+	USAGE: Constructs an octant at a center point using uniform sides.
+	ARGUMENTS:
+	- MyOctant* a_pParent -> Parent octant pointer.
+	- vector3 a_v3Center -> Center of the octant in global space.
+	- float a_fSize -> Size of each of the sides of the octant volume.
+	OUTPUT: class object.
+	*/
+	MyOctant::MyOctant(MyOctant* a_pParent, vector3 a_v3Center, float a_fSize) 
+	{
+		// Initialize the octant.
+		this->Init();
+
+		// Assign static members.
+		MyOctant::sOctantCount++;
+
+		// Set the octant values.
+		this->SetID(-1); // Gets the most recent ID value.
+		this->SetParent(a_pParent);
+		this->SetRoot();
+				
+		// Assign input values. (Overwrites initialized values).
+		this->SetCenterGlobal(a_v3Center); // Assign the global space center.
+		this->SetSize(a_fSize); // Assign half width as same for each of the three dimensions.
+		
+		this->ToString();
+	}
+
+	/*
+	USAGE: Constructs an octant at a center point using varying sides.
+	ARGUMENTS:
+	- MyOctant* a_pParent -> Parent octant pointer.
+	- vector3 a_v3Center -> Center of the octant in global space.
+	- float a_v3HalfWidths -> Half size of each of the sides of the octant volume.
+	OUTPUT: class object.
+	*/
+	MyOctant::MyOctant(MyOctant* a_pParent, vector3 a_v3Center, vector3 a_v3HalfWidths)
+	{
+		// Initialize the octant.
+		this->Init();
+
+		// Assign static members.
+		MyOctant::sOctantCount++;
+
+		// Set the octant values.
+		this->SetID(-1); // Gets the most recent ID value.
+		this->SetParent(a_pParent);
+		this->SetRoot();
+
+		// Assign input values. (Overwrites initialized values).
+		this->SetCenterGlobal(a_v3Center); // Assign the global space center.
+		this->SetHalfWidths(a_v3HalfWidths); // Assign half width as same for each of the three dimensions.
+
+		this->ToString();
+	}
+
+#pragma endregion
+
+#pragma region //	Rule of Three
+
+	/*
+	USAGE: Copies the input octant at face value, retaining the same values overall.
+	ARGUMENTS: other -> class object to copy.
+	OUTPUT: class object instance.
+	*/
+	MyOctant::MyOctant(MyOctant const& other)
+	{
+		// Instances.
+		this->m_pMeshManager = other.m_pMeshManager;
+		this->m_pEntityManager = other.m_pEntityManager;
+
+		// Flags.
+		this->m_bEnabled = other.m_bEnabled;
+		this->m_bVisibleOBB = other.m_bVisibleOBB;
+		
+		// Values.
+		this->m_uID = 0;
+		this->m_uDepth = 0;
+		this->m_uChildCount = 0;
+
+		// Colors.
+		this->m_v3Active = other.m_v3Active;
+		this->m_v3Inactive = other.m_v3Inactive;
+
+		// Vectors.
+		this->m_v3HalfWidths = other.m_v3HalfWidths;
+		this->m_v3Center = other.m_v3Center;
+		this->m_v3Maximum = other.m_v3Maximum;
+		this->m_v3Minimum = other.m_v3Minimum;
+		
+		// Collections.
+		this->m_lEntities = other.m_lEntities;
+		this->m_lActiveChildren = other.m_lActiveChildren;
+
+		// Pointers
+		this->m_pParent = other.m_pParent;
+		this->m_pRoot = other.m_pRoot;
+
+		// Shallow copy array.
+		this->m_pChild[8] = {};
+		if (!other.IsLeaf()) {
+			// If the other has children, copy them over.
+			for (uint i = 0; i < m_uChildCount; i++)
+			{
+				this->m_pChild[i] = other.m_pChild[i];
+			}
+		}
+	}
+
+	/*
+	USAGE: Copies the input octant at face value, retaining the same values overall.
+	ARGUMENTS: other -> class object to copy.
+	OUTPUT: ---
+	*/
+	MyOctant& MyOctant::operator=(MyOctant const& other)
+	{
+		// Check to make sure this isn't the same octant.
+		if (this != &other) {
+
+			// Clear this object.
+			this->Release();
+
+			// Initialize this object again.
+			this->Init();
+
+			// Use the copy constructor.
+			MyOctant temp(other);
+
+			// Swap with temp object.
+			this->Swap(temp);
+		}
+
+		return *this;
+	}
+
+	/*
+	USAGE: Destructor.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	MyOctant::~MyOctant(void)
+	{
+		// Release memory.
+		Release();
+	}
+
+#pragma endregion
+
+#pragma region //	Rule of Five
+
+	/*
+	USAGE: Move constructor.
+	ARGUMENTS: other -> class object to copy.
+	OUTPUT: class object instance.
+	*/
+	MyOctant::MyOctant(MyOctant&& other) 
+	{				
+		// Use the move assignment operator.
+		(*this) = MyOctant(other);
+	}
+
+	/*
+	USAGE: Move assignment operator.
+	ARGUMENTS: other -> class object to copy.
+	OUTPUT: ---
+	*/
+	MyOctant& MyOctant::operator=(MyOctant&& other)
+	{
+		// Check if same.
+		if (this != &other) 
+		{
+			// Release the data.
+			this->Release();
+
+			// Initialize once again.
+			this->Init();
+			
+			// Swap values.
+			this->Swap(other);
+
+			// Release the other.
+			other.Release();		
+		}
+		
+		// Return reference.
+		return *this;
+	}
+
+	/*
+	USAGE: Changes the object's contents for the input object.
+	ARGUMENTS: MyOctant& other -> The other object to swap contents with.
+	OUTPUT: ---
+	*/
+	void MyOctant::Swap(MyOctant& other)
+	{
+		// Swap values.
+		std::swap(m_uID, other.m_uID);
+		std::swap(m_uDepth, other.m_uDepth);
+		std::swap(m_uChildCount, other.m_uChildCount);
+
+		std::swap(m_bEnabled, other.m_bEnabled);
+		std::swap(m_bVisibleOBB, other.m_bVisibleOBB);
+		
+		// Swap vector3s.
+		std::swap(m_v3Center, other.m_v3Center);
+		std::swap(m_v3Maximum, other.m_v3Maximum);
+		std::swap(m_v3Minimum, other.m_v3Minimum);
+		std::swap(m_v3HalfWidths, other.m_v3HalfWidths);
+
+		std::swap(m_v3Active, other.m_v3Active);
+		std::swap(m_v3Inactive, other.m_v3Inactive);
+				
+		// Swap collections.;
+		std::swap(m_lEntities, other.m_lEntities);
+		std::swap(m_lActiveChildren, other.m_lActiveChildren);
+		std::swap(m_pChild, other.m_pChild);
+
+		// Swap memory.
+		std::swap(m_pMeshManager, other.m_pMeshManager);
+		std::swap(m_pEntityManager, other.m_pEntityManager);
+		std::swap(m_pParent, other.m_pParent);
+		std::swap(m_pRoot, other.m_pRoot);
+	}
+
+#pragma endregion
+
+#pragma region //	Initialization/Memory Management Methods
+
+	/*
+	USAGE: Deallocates the member fields in need of memory management.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::Release(void) 
+	{
+
+		// Do nothing.
+
+
+		/*
+		// Clear the entity list of this octant and clear its children.
+		this->ClearChildren();
+		this->ClearEntityList();
+		
+		// Close flags.
+		this->m_bEnabled = false;
+		this->m_bVisibleOBB = false;
+
+		// Overwrite values.
+		m_uID = 0;
+		m_uDepth = 0;
+		m_v3HalfWidths = ZERO_V3;
+		m_v3Center = ZERO_V3;
+		m_v3Minimum = ZERO_V3;
+		m_v3Maximum = ZERO_V3;
+
+		// Release pointers.
+		m_pMeshManager = nullptr; // DO NOT DELETE.
+		m_pEntityManager = nullptr; // DO NOT DELETE.
+		m_pParent = nullptr; // DO NOT DELETE.
+		m_pRoot = nullptr; // DO NOT DELETE.
+
+		// Collections.
+		if (!m_lActiveChildren.empty()) { this->m_lActiveChildren.clear(); }
+
+		// Reduce octant count by one.
+		sOctantCount--;
+		if (sOctantCount == -1) { sOctantCount = 0; }
+		*/
+	}
+
+	/*
+	USAGE: Initializes the octant.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::Init(void)
+	{
+		// Initialize the singletons.
+		m_pMeshManager = MeshManager::GetInstance();
+		m_pEntityManager = MyEntityManager::GetInstance();
+
+		// Initialize fields.
+		InitVariables();
+	}
+
+	/*
+	USAGE: Allocates member field data and initializes the octant.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::InitVariables(void)
+	{		
+		// // Initialize the fields to their default values.
+
+		// Flags.
+		m_bEnabled = true;
+		m_bVisibleOBB = false;
+
+		// Unsigned int values.
+		m_uID = 0;
+		m_uDepth = 0;
+		m_uChildCount = 0;
+
+		// Colors.
+		m_v3Active = C_YELLOW;
+		m_v3Inactive = C_WHITE;
+
+		// Vector3s.
+		this->SetHalfWidths(ZERO_V3);
+		this->SetCenterGlobal(ZERO_V3);
+		this->SetMinGlobal(ZERO_V3);
+		this->SetMaxGlobal(ZERO_V3);
+
+		// Collections.
+		m_lEntities = std::set<uint>();
+		m_lActiveChildren = std::vector<MyOctant*>();
+
+		// Initializes memory managed members.
+		m_pParent = nullptr; // Will be set after init is called.
+		m_pRoot = nullptr; // Reference to the root octant. (Will also be set after init is called).
+						   
+		// Creates a pointer array that will hold 8 octants.
+		m_pChild[8] = { }; // Sets it to null.
+	}
+
+	/*
+	USAGE: Creates the list of all leaves that contain objects.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::ConstructList(void)
+	{
+		// Check if this is a leaf.
+		if (IsLeaf()) 
+		{
+			// Check if this has entities.
+			if (!IsEmpty()) 
+			{
+				// If this leaf has entities, it is active. (EXIT CONDITION).
+				this->m_pRoot->m_lActiveChildren.push_back(this);
+			}			
+		} 
+		else
+		{
+			// If this is the root, clear the list first.
+			if (IsRoot()) 
+			{
+				// We don't want to delete the pointers; only remove our collection of them.
+				this->m_lActiveChildren.clear();
+			}
+
+			// Call construct list on all children.
+			for (uint i = 0; i < m_uChildCount; i++) 
+			{
+				// If child isn't a nullptr, call the construct list function.
+				MyOctant* child = m_pChild[i];
+				if (child) { child->ConstructList(); }
+			}
+		}
+	}
+
+#pragma endregion
+
+#pragma region //	Flag Methods
+
+	/*
+	USAGE: Asking if there is a collision with an Entity as supplied by the input index value.
+	ARGUMENTS: uint a_uRBIndex -> Index of the Entity in the EntityManager.
+	OUTPUT: Check of the collision.
+	*/
+	bool MyOctant::IsColliding(uint a_uRBIndex)
+	{
+		// Check if the index exists.
+		if (a_uRBIndex < 0 || a_uRBIndex == -1) { return false; }
+
+		// Check if the entity exists.
+		MyEntity* entity = m_pEntityManager->GetEntity(a_uRBIndex);
+		if (entity == nullptr) { return false; }
+
+		// Check if rigidbody exists.
+		MyRigidBody* entityRB = m_pEntityManager->GetRigidBody();
+		if (entityRB == nullptr) { return false; }
+
+		// Create the octant's rigidbody.
+		std::vector<vector3> points = { this->m_v3Maximum, this->m_v3Minimum };
+		MyRigidBody* octantRB = new MyRigidBody(points);
+		
+		octantRB->SetVisibleARBB(false);
+		octantRB->SetVisibleOBB(false);
+		octantRB->SetVisibleBS(false);
+		
+		// Check if the entityRB is colliding with the octant.
+		bool collision = entityRB->IsColliding(octantRB);
+		
+		// Release memory.
+		delete octantRB;
+
+		// Return value of the collision.
+		return collision;
+	}
+
+	/*
+	USAGE: Asks if this octant has no parents.
+	ARGUMENTS: ---
+	OUTPUT: Returns check.
+	*/
+	bool MyOctant::IsRoot(void) const
+	{
+		// If parent is null, then this is the root.
+		return (m_pParent == nullptr);
+	}
+
+	/*
+	USAGE: Asks if this octant has no children.
+	ARGUMENTS: ---
+	OUTPUT: Returns check.
+	*/
+	bool MyOctant::IsLeaf(void) const
+	{
+		// If the child count is equal to zero, then it is a leaf.
+		return (m_uChildCount == 0);
+	}
+
+	/*
+	USAGE: Checks to see if this octant has more than the input number of entities available.
+	ARGUMENTS: uint a_uEntities -> Number of entities to check for.
+	OUTPUT: Returns check.
+	*/
+	bool MyOctant::ContainsMoreThan(uint a_uEntities)
+	{
+		// Ensure our input value is greater than or equal to 0.
+		if (a_uEntities < 0 || a_uEntities == -1) { return false; }
+		else 
+		{
+			// Return a true, if the number of entities in the octant are greater than the input value.
+			return (a_uEntities < GetEntityCount());
+		}
+
+		// When uint is a -1, then return false.
+		return false;
+	}
+
+	/*
+	USAGE: Asks if this octant has no entities.
+	ARGUMENTS: ---
+	OUTPUT: Returns check.
+	*/
+	bool MyOctant::IsEmpty(void) const
+	{
+		return (this->m_lEntities.empty());
+	}
+
+	/*
+	Usage: Gets visibility of oriented bounding box.
+	Arguments: ---
+	Output: Returns check.
+	*/
+	bool MyOctant::IsOBBVisible(void) const
+	{
+		return (this->m_bVisibleOBB);
+	}
+
+	/*
+	Usage: Gets enabled flag of octant.
+	Arguments: ---
+	Output: Returns check.
+	*/
+	bool MyOctant::IsEnabled(void) const
+	{
+		return (this->m_bEnabled);
+	}
+
+#pragma endregion
+
+#pragma region //	Mutator Methods
+	
+	/*
+	Usage: Sets the octant ID.
+	Arguments: uint a_uID -> Octant ID to assign. If -1, gets ID based off of the octant count.
+	Output: ---
+	*/
+	void MyOctant::SetID(uint a_uID)
+	{
+		if (a_uID < 0 || a_uID == -1) { a_uID = (MyOctant::sOctantCount - 1); }
+		m_uID = a_uID;
+	}
+
+	/*
+	Usage: Sets visibility of octant OBB.
+	Arguments: bool a_bVisibleOBB -> Input value to set OBB visibility flag to.
+	Output: ---
+	*/
+	void MyOctant::SetOBBVisbile(bool a_bVisibleOBB)
+	{
+		this->m_bVisibleOBB = a_bVisibleOBB;
+	}
+
+	/*
+	Usage: Sets enabled flag of octant.
+	Arguments: bool a_bEnabled -> Input value to set enable flag to.
+	Output: ---
+	*/
+	void MyOctant::SetEnabled(bool a_bEnabled)
+	{
+		this->m_bEnabled = a_bEnabled;
+	}
+
+	/*
+	USAGE: Sets this octant's size. (via half-width property).
+	ARGUMENTS: a_fSize -> Length of sides of the octant.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetSize(float a_fSize)
+	{
+		if (a_fSize < sMinimumSize) { a_fSize = static_cast<float>(sMinimumSize); }
+		float a_fHalfSize = a_fSize / 2;
+		this->m_v3HalfWidths = vector3(a_fHalfSize);
+	}
+
+	/*
+	USAGE: Sets this octant's half widths.
+	ARGUMENTS: a_v3HalfWidths -> Value to set half widths to.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetHalfWidths(vector3 a_v3HalfWidths)
+	{
+		// Validate the input parameters.
+		float min = sMinimumSize / 2.0f;
+		if (a_v3HalfWidths == ZERO_V3) { a_v3HalfWidths = vector3(min); }
+		else {
+			if (a_v3HalfWidths.x < min) { a_v3HalfWidths.x = min; }
+			if (a_v3HalfWidths.y < min) { a_v3HalfWidths.y = min; }
+			if (a_v3HalfWidths.z < min) { a_v3HalfWidths.z = min; }
+		}
+		this->m_v3HalfWidths = a_v3HalfWidths;
+	}
+
+	/*
+	USAGE: Set the center of the octant in global space.
+	ARGUMENTS: a_v3Center -> Value to set center to.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetCenterGlobal(vector3 a_v3Center)
+	{
+		float min = FLT_EPSILON;
+		if (a_v3Center == ZERO_V3) { a_v3Center = vector3(min); }
+		else {
+			if (a_v3Center.x == 0.0f) { a_v3Center.x = min; }
+			if (a_v3Center.y == 0.0f) { a_v3Center.y = min; }
+			if (a_v3Center.z == 0.0f) { a_v3Center.z = min; }
+		}
+		this->m_v3Center = a_v3Center;
+	}
+
+	/*
+	USAGE: Set the maximum vector in global space.
+	ARGUMENTS: a_v3Maximum -> Value to set maximum vector to.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetMaxGlobal(vector3 a_v3Maximum)
+	{
+		float min = FLT_EPSILON;
+		if (a_v3Maximum == ZERO_V3) { a_v3Maximum = vector3(min); }
+		else {
+			if (a_v3Maximum.x == 0.0f) { a_v3Maximum.x = min; }
+			if (a_v3Maximum.y == 0.0f) { a_v3Maximum.y = min; }
+			if (a_v3Maximum.z == 0.0f) { a_v3Maximum.z = min; }
+		}
+		this->m_v3Maximum = a_v3Maximum;
+	}
+
+	/*
+	USAGE: Set the minimum vector in global space.
+	ARGUMENTS: a_v3Minimum -> Value to set minimum vector to.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetMinGlobal(vector3 a_v3Minimum)
+	{
+		float min = FLT_EPSILON;
+		if (a_v3Minimum == ZERO_V3) { a_v3Minimum = vector3(min); }
+		else {
+			if (a_v3Minimum.x == 0.0f) { a_v3Minimum.x = min; }
+			if (a_v3Minimum.y == 0.0f) { a_v3Minimum.y = min; }
+			if (a_v3Minimum.z == 0.0f) { a_v3Minimum.z = min; }
+		}
+		this->m_v3Minimum = a_v3Minimum;
+	}
+
+	/*
+	USAGE: Sets the octant reference at the specified index to the input value (if possible).
+	ARGUMENTS:
+	- uint a_uChild -> index of the child [0, 7].
+	- MyOctant* const a_pChild -> pointer child to add.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetChild(uint a_uChild, MyOctant* const a_pChild)
+	{
+		// Validate input parameters.
+		if (a_uChild < 0 || a_uChild == -1 || a_pChild == nullptr) { return; }
+		
+		// If it has children, overwrite the existing space.
+		if (!IsLeaf()) 
+		{
+			m_pChild[a_uChild] = a_pChild;
+		}
+	}
+	
+	/*
+	USAGE: Sets the octant's parent.
+	ARGUMENTS: MyOctant* const a_pParent -> pointer parent to set.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetParent(MyOctant* const a_pParent) 
+	{
+		this->m_pParent = a_pParent;
+		if (m_pParent != nullptr) {
+			this->m_uDepth = m_pParent->m_uDepth + 1; // Increment the depth based on the parent.
+		}
+	}
+
+	/*
+	USAGE: Sets up reference to the root octant by traversing through the tree.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::SetRoot(void) 
+	{
+		this->m_pRoot = &GetRoot();
+	}
+
+	/*
+	USAGE: Set the active color of the octant.
+	ARGUMENTS: vector3 a_v3Color -> Input color value to assign.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetActiveColor(vector3 a_v3Color)
+	{
+		this->m_v3Active = a_v3Color;
+	}
+
+	/*
+	USAGE: Set the inactive color of the octant.
+	ARGUMENTS: vector3 a_v3Color -> Input color value to assign.
+	OUTPUT: ---
+	*/
+	void MyOctant::SetInactiveColor(vector3 a_v3Color)
+	{
+		this->m_v3Inactive = a_v3Color;
+	}
+
+#pragma endregion
+
+#pragma region //	Accessor Methods
+	
+	/*
+	USAGE: Gets this octant's ID.
+	ARGUMENTS: ---
+	OUTPUT: Returns the ID of the octant.
+	*/
+	uint MyOctant::GetID(void) const 
+	{
+		return this->m_uID;
+	}
+
+	/*
+	USAGE: Gets this octant's size.
+	ARGUMENTS: ---
+	OUTPUT: Returns the size of the octant as a float.
+	*/
+	float MyOctant::GetSize(void) const
+	{
+		// This will return the average of the full widths in all dimensions.
+		return (2 * (m_v3HalfWidths.x + m_v3HalfWidths.y + m_v3HalfWidths.z)) / 3;
+	}
+
+	/*
+	USAGE: Gets this octant's half widths.
+	ARGUMENTS: ---
+	OUTPUT: Returns the half widths of the octant as a vector3.
+	*/
+	vector3 MyOctant::GetHalfWidths(void) const
+	{
+		// This will return a vector3 containing the Octant's halfwidths.
+		return m_v3HalfWidths;
+	}
+
+	/*
+	USAGE: Get the center of the octant in global space.
+	ARGUMENTS: ---
+	OUTPUT: Returns a vector3.
+	*/
+	vector3 MyOctant::GetCenterGlobal(void) const
+	{
+		// This will return a vector3 containing the octant's center in global space.
+		return m_v3Center;
+	}
+
+	/*
+	USAGE: Get the maximum vector in global space.
+	ARGUMENTS: ---
+	OUTPUT: Returns a vector3.
+	*/
+	vector3 MyOctant::GetMaxGlobal(void) const
+	{
+		// This will return a vector3 containing the octant's maximum vector, in global space.
+		return m_v3Maximum;
+	}
+
+	/*
+	USAGE: Get the minimum vector in global space.
+	ARGUMENTS: ---
+	OUTPUT: Returns a vector3.
+	*/
+	vector3 MyOctant::GetMinGlobal(void) const
+	{
+		// This will return a vector3 containing the octant's minimum vector, in global space.
+		return m_v3Minimum;
+	}
+
+	/*
+	USAGE: Returns the child at the specified index (if possible).
+	ARGUMENTS: uint a_uChild -> index of the child [0, 7].
+	OUTPUT: MyOctant object (child at index).
+	*/
+	MyOctant* MyOctant::GetChild(uint a_uChild) const
+	{
+		// Check if index value is within range.
+		if (a_uChild < 0 || a_uChild == -1) { return nullptr; }
+		else if (a_uChild >= 0 && a_uChild <= 7) {
+			// Check if there are children.
+			if (!IsLeaf())
+			{
+				// If this octant has children (aka, is not a leaf).
+				return m_pChild[a_uChild];
+			}
+		}
+		return nullptr;
+	}
+
+	/*
+	USAGE: Returns the parent of this octant.
+	ARGUMENTS: ---
+	OUTPUT: MyOctant object (parent of this octant).
+	*/
+	MyOctant* MyOctant::GetParent(void) const
+	{
+		// Will return a nullptr if the root.
+		return m_pParent;
+	}
+
+	/*
+	USAGE: Returns the root.
+	ARGUMENTS: ---
+	OUTPUT: MyOctant object (root of this octant's octree).
+	*/
+	MyOctant& MyOctant::GetRoot(void)
+	{
+		if(IsRoot()) 
+		{
+			return (*this);
+		}
+		else 
+		{
+			return this->GetParent()->GetRoot();
+		}
+	}
+
+	/*
+	USAGE: Return the total number of octants in the world.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	uint MyOctant::GetOctantCount(void) const
+	{
+		return MyOctant::sOctantCount;
+	}
+
+	/*
+	USAGE: Return the number of entities within the octant.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	uint MyOctant::GetEntityCount(void) const
+	{
+		return m_lEntities.size();
+	}
+
+	/*
+	USAGE: Get the active color of the octant.
+	ARGUMENTS: ---
+	OUTPUT: Returns the color.
+	*/
+	vector3 MyOctant::GetActiveColor(void) const
+	{
+		return m_v3Active;
+	}
+
+	/*
+	USAGE: Get the inactive color of the octant.
+	ARGUMENTS: ---
+	OUTPUT: Returns the color.
+	*/
+	vector3 MyOctant::GetInactiveColor(void) const
+	{
+		return m_v3Inactive;
+	}
+
+#pragma endregion
+
+#pragma region //	Service Methods
+	
+	/*
+	USAGE: Send the octree to a string.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::ToString(void) 
+	{
+		std::cout << "\nOctant [" << m_uID << "]: (Depth: " << m_uDepth << ", Children: " << m_uChildCount << " , Entities: " << m_lEntities.size() << ").";
+	}
+
+	/*
+	USAGE: Adds a collection of entities to the octant.
+	ARGUMENTS: uint a_lIndices -> Indices of the entities to be added.
+	OUTPUT: ---
+	*/
+	void MyOctant::AddEntities(std::set<uint> a_lIndices)
+	{
+		// Add entity for each element in the collection.
+		std::set<uint>::iterator i;
+		for (i = a_lIndices.begin(); i != a_lIndices.end(); i++) 
+		{
+			this->AddEntity(*i);
+		}
+	}
+
+	/*
+	USAGE: Adds a single entity to the octant.
+	ARGUMENTS: uint a_uIndex -> Index of the entity to be added.
+	OUTPUT: ---
+	*/
+	void MyOctant::AddEntity(uint a_uIndex) 
+	{
+		// Confirms index is potentially valid.
+		if (a_uIndex < 0 || a_uIndex == -1) { return; }
+
+		// Check if the entity is within the bounds.
+		if (this->IsColliding(a_uIndex)) 
+		{
+			// Check if the octant has any children.
+			if (!IsLeaf()) 
+			{
+				// Attempt to add entity to each of its children.
+				for (uint i = 0; i < m_uChildCount; i++) 
+				{
+					// The recursive attempt to add the entity to the child.
+					this->m_pChild[i]->AddEntity(a_uIndex);
+				}
+			}
+			else 
+			{
+				// If there are no children, check if the octant has met the maximum subdivision threshold.
+				if (this->m_uDepth < sDepthThreshold) 
+				{
+					// If it has not met the subdivision threshold, check it it's met the ideal entity count.
+					if (this->ContainsMoreThan(sEntityThreshold)) 
+					{
+						// If it is big enough to subdivide.
+						if (this->GetSize() >= sMinimumSize) 
+						{
+							// All the flags for subdivision have passed, so, we shall subdivide.
+							this->Subdivide();
+
+							// Attempt to add entity to each of its children.
+							for (uint i = 0; i < m_uChildCount; i++)
+							{
+								// The recursive attempt to add the entity to the child.
+								this->m_pChild[i]->AddEntity(a_uIndex);
+							}
+						}
+						else 
+						{
+							// Too small to subdivide. Add to this entity.
+							this->m_lEntities.insert(a_uIndex);
+							return; // Exit.
+						}
+					}
+					else 
+					{
+						// Doesn't contain the entity threshold. Add to this entity.
+						this->m_lEntities.insert(a_uIndex);
+						return; // Exit.
+					}
+				}
+				else 
+				{
+					// Has met (or exceeded) the depth threshold and cannot be subdivided anymore. Add to this entity.
+					this->m_lEntities.insert(a_uIndex);
+					return; // Exit.
+				}
+			}
+		}
+		else 
+		{
+			// If not colliding with the octant, simply return as we don't need to query any children.
+			return;
+		}
+	}
+
+	/*
+	USAGE: Adds (or updates) all entities present in the queue.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	/* void MyOctant::AddQueue(void)
+	{
+		// Check if a queue even exists.
+		if (m_lEntityQueue.empty()) { return; }
+
+		// Check if there will be a process limit on the amount of entities to add in one go.
+		bool noLimit = (sMaximumProcesses == -1);
+
+		// Get values for loop management.
+		uint queueIndex = (m_lEntityQueue.size() - 1); // We know there is at least one item, since it isn't empty.
+		uint processCount = 0;
+
+		// This will loop through the queue on a couple of important conditions:
+		// 1. While the queueIndex is not at zero.
+		// 2a. While there is no limit on the process count.
+		// 2b. OR, while there is a limit AND the process count is less than or equal to the maximum processes.
+		while ((queueIndex >= 0) && (noLimit || processCount <= sMaximumProcesses))
+		{
+			// Get the entity ID.
+			uint entityID = m_lEntityQueue[queueIndex];
+			
+			// Check if the value is valid.
+			if(entityID != -1) 
+			{
+				// We use set because it will automatically handle duplicates (meaning it won't add them in those cases).
+				m_lEntities.insert(entityID);				
+			}
+			
+			// We consider the entity ID processed, even if it happens to be invalid.
+			// At the end of every loop, update exit condition values.
+			m_lEntityQueue.pop_back(); // Remove the entity reference from the end of the queue.
+			queueIndex = (m_lEntityQueue.size() - 1); // We know there is at least one item, since it isn't empty.
+			processCount++; // Increment the process count by one.
+		}
+
+		// If there are still entities remaining in the queue, we'll simply deal with them on the next method call.
+		// Enabling this variable early out means we can batch process entities in groups at a time.
+		// When we enact a process limit, however, it means there may be some frames where collision detection doesn't take place.
+		// This means we'll want to add entities in a priority fashion.
+	} */
+
+	// TODO : Update Tree
+
+	/*
+	USAGE: Display the MyOctant object, specified by index, including the objects underneath. (Used to display children).
+	ARGUMENTS:
+	- uint a_uIndex -> MyOctant to be displayed.
+	- vector3 a_v3Color = C_YELLOW -> Color to be displayed in.
+	OUTPUT: ---
+	*/
+	void MyOctant::Display(uint a_uIndex, vector3 a_v3Color)
+	{
+		// Check index validity.
+		if (a_uIndex < 0 || a_uIndex == -1) { return; }
+
+		// Check if this index matches the input.
+		if (m_uID == a_uIndex) 
+		{
+			// Display using this color.
+			this->Display(a_v3Color);
+		}
+		else if (IsLeaf()) 
+		{
+			// If it has no children, and the index doesn't match, return.
+			return;
+		}
+		else
+		{
+			// Continue searching for children.
+			for (uint i = 0; i < m_uChildCount; i++) 
+			{
+				m_pChild[i]->Display(a_uIndex, a_v3Color);
+			}
+		}
+	}
+
+	/*
+	USAGE: Displays the MyOctant volume in the color specified.
+	ARGUMENTS: vector3 a_v3Color = C_YELLOW -> Color to be displayed in.
+	OUTPUT: ---
+	*/
+	void MyOctant::Display(vector3 a_v3Color)
+	{
+		// Display the octant using the input color.
+		this->m_pMeshManager->AddWireCubeToRenderList(glm::translate(m_v3Center) * glm::scale(m_v3HalfWidths * 2.0f), a_v3Color);
+
+		// Run this display on all children, if any.
+		if (IsLeaf())
+		{
+			// If it is a leaf, then there are no children.
+			return;
+		} 
+		else
+		{
+			// If not a leaf, it will continue to perform recursion.
+			for (uint i = 0; i < m_uChildCount; i++) 
+			{
+				// Display child volumes underneath this one.
+				m_pChild[i]->Display(a_v3Color);
+			}
+		}
+	}
+	
+	/*
+	USAGE: Displays the non-empty leaf nodes in the octree.
+	ARGUMENTS:
+	- vector3 a_v3Color = C_YELLOW -> Color to display leaf octant in.
+	OUTPUT: ---
+	*/
+	void MyOctant::DisplayLeafs(vector3 a_v3Color)
+	{
+		// Check if it's a leaf.
+		if (IsLeaf()) 
+		{
+			// If it has no children (ie. is a leaf), check if it has entities.
+			if (!IsEmpty()) 
+			{
+				// Display this octant.
+				this->Display(a_v3Color);
+			}
+		}
+		else 
+		{
+			// If it has children (ie. not a leaf), call this on its children.
+			for (uint i = 0; i < m_uChildCount; i++)
+			{
+				// Display leaves in this branch.
+				m_pChild[i]->DisplayLeafs(a_v3Color);
+			}
+		}
+	}
+
+	/*
+	USAGE: Clears the entity list for each node.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::ClearEntityList(void)
+	{
+		if (!IsEmpty()) 
+		{
+			// Clear and reinitialize the entity list.
+			m_lEntities.clear();
+			m_lEntities = std::set<uint>();
+		}
+
+		if (!IsLeaf()) 
+		{
+			// If there are children, clear the entity list for each child octant.
+			for (uint i = 0; i < m_uChildCount; i++) 
+			{
+				// Clear entity list in child.
+				m_pChild[i]->ClearEntityList();
+			}
+		}
+	}
+
+	/*
+	USAGE: Recursively deletes all children (and its children). (Array must be re-initialized after this).
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::ClearChildren(void) 
+	{
+		if (!IsLeaf())
+		{
+			// Delete children.
+			for (uint i = m_uChildCount - 1; i >= 0; i--) 
+			{
+				if (i == -1) { break; }
+				// m_pChild[i]->Release();
+				// m_pChild[i] = nullptr;
+			}
+
+			// Set child count to zero.
+			m_uChildCount = 0;
+		}
+	}
+
+	/*
+	USAGE: Allocates 8 smaller octants in the child pointers.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::Subdivide(void)
+	{
+		// Check if there are children already.
+		if (IsLeaf()) {
+
+			// Clear the entity list inside of this.
+			this->ClearEntityList();
+
+			// Set the child count to 8.
+			this->m_uChildCount = 8;
+
+			// Calculate the centers for the eight cubes.
+			/*
+				// The centers:
+				// o = Origin (center of original octant).
+				// a = o + half.x + half.y - half.z
+				// b = o + half.x + half.y + half.z
+				// c = o + half.x - half.y - half.z
+				// d = o + half.x - half.y + half.z
+				// a = o - half.x + half.y - half.z
+				// b = o - half.x + half.y + half.z
+				// c = o - half.x - half.y - half.z
+				// d = o - half.x - half.y + half.z
+			*/
+			vector3 center = this->GetCenterGlobal();
+			vector3 hw = this->GetHalfWidths();
+			vector3 centers[8] = {
+				center + vector3(hw.x, hw.y, -hw.z),
+				center + vector3(hw.x, hw.y, hw.z),
+				center + vector3(hw.x, -hw.y, -hw.z),
+				center + vector3(hw.x, -hw.y, hw.z),
+				center + vector3(-hw.x, hw.y, -hw.z),
+				center + vector3(-hw.x, hw.y, hw.z),
+				center + vector3(-hw.x, -hw.y, -hw.z),
+				center + vector3(-hw.x, -hw.y, hw.z)
+			}; // Collection of centers.
+			
+			hw = hw / 2.0f;
+
+			// Add the subdivisions as children.
+			for (uint i = 0; i < m_uChildCount; i++)
+			{
+				// Create a child, from one of the eight calculated centers, using a consistent half width vector.
+				this->m_pChild[i] = new MyOctant(this, centers[i], hw);
+			}
+		}
+	}
+
+	/*
+	USAGE: Recursively deletes all children (and children of children).
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::KillBranches(void)
+	{
+		// Just a wrapper function for the ClearChildren method. Either works.
+		this->ClearChildren();
+	}
+
+	/*
+	USAGE: Creates a tree using subdivisions, the max number of objects and levels.
+	ARGUMENTS: uint a_uSubdivisionThreshold = 3 -> Sets the maximum level of the tree it is constructing.
+	OUTPUT: ---
+	*/
+	void MyOctant::ConstructTree(uint a_uSubdivisionThreshold)
+	{
+		// Apply setting input.
+		this->SetMaximumDepth(a_uSubdivisionThreshold);
+
+		// Call the construct tree method.
+		this->ConstructTree();
+	}
+
+	/*
+	USAGE: Creates a tree using global settings, with an input entities.
+	ARGUMENTS: std::set<uint> a_uEntities -> Set of entity IDs to construct the tree with.
+	OUTPUT: ---
+	*/
+	void MyOctant::ConstructTree(std::set<uint> a_uEntities)
+	{
+		// Check which node we are in.
+		if (IsRoot()) 
+		{
+			// If we are in the root, we'll need to calculate our new extents.
+			// Grab the points for all of these entities.
+			std::vector<vector3> points = std::vector<vector3>();
+
+			// Add the minimum size min and max vectors, based on the default minimum and maximum sizes.
+			vector3 half = vector3(sMinimumSize / 2);
+			points.push_back(vector3(this->GetCenterGlobal() + half));
+			points.push_back(vector3(this->GetCenterGlobal() - half));
+
+			// Add iterator.
+			std::set<uint>::iterator i;
+			for (i = a_uEntities.begin(); i != a_uEntities.end(); i++) 
+			{
+				points.push_back(m_pEntityManager->GetEntity(*i)->GetRigidBody()->GetMaxGlobal());
+				points.push_back(m_pEntityManager->GetEntity(*i)->GetRigidBody()->GetMinGlobal());
+			}
+
+			// Get the center, maximum, and minimum.
+			this->SetCenterGlobal(this->FindCenter(points));
+			this->SetMaxGlobal(this->FindMaximum(points));
+			this->SetMinGlobal(this->FindMinimum(points));
+
+			// Set the size based on the distance between the vectors.
+			this->SetSize(glm::abs(this->GetMaxGlobal().x - this->GetMinGlobal().x));
+
+			// Add the entities.
+			this->AddEntities(a_uEntities);
+		}
+	}
+
+	/*
+	USAGE: Creates a tree using global settings.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::ConstructTree(void) 
+	{
+		// Create set of entities.
+		std::set<uint> indices = std::set<uint>();
+
+		// Loop through entities.
+		for (uint i = 0; i < m_pEntityManager->GetEntityCount(); i++) 
+		{
+			indices.insert(i);
+		}
+
+		// Call the construct tree method using the global setting for maximum depth.
+		this->ConstructTree(indices);
+	}
+	
+	/*
+	USAGE: Traverse the tree to the leafs and sets the objects in them to the index.
+	ARGUMENTS: ---
+	OUTPUT: ---
+	*/
+	void MyOctant::AssignID(void)
+	{
+		// Assumptions: Our entity set has already been created.
+		// Goal: Set and confirm entity Dimension as being the octant's ID.		 
+		if (!IsLeaf())
+		{
+			// So I found out that the verb is to 'recurse' and not to 'recur', in the context of computer programming.
+			// Recurse on the children if a leaf hasn't been reached.
+			for (uint i = 0; i < m_uChildCount; i++) 
+			{
+				this->m_pChild[i]->AssignID();
+			}
+		} 
+		else
+		{
+			// In the else case, this is a leaf (ie. has no children), so we check to see if there are any entities to assign.
+			if (!IsEmpty()) 
+			{
+				// Loop through the set of entities, using an iterator.
+				std::set<uint>::iterator i; // Iterator.
+				for (i = m_lEntities.begin(); i != m_lEntities.end(); i++) 
+				{
+					// For every entity ID in the set, we'll want to assign a dimension via the manager.
+					this->m_pEntityManager->AddDimension(*i, m_uID);
+				}				
+			}
+
+			// Exit condition: The octant has no child octants (is a leaf).
+			// We do not perform recursion again.
+		}
+	}
+
+	/*
+	USAGE: Returns a vector that represents the center.
+	ARGUMENTS: std::vector<vector3> points -> Contains a set of vector3 points.
+	OUTPUT: Returns the center vector.
+	*/
+	vector3 MyOctant::FindCenter(std::vector<vector3> points)
+	{
+		// Check size of the set.
+		if (points.empty()) { return ZERO_V3; }
+
+		// Create iterator for the set.
+		std::vector<vector3>::iterator i = points.begin();
+
+		// Create storage for result.
+		vector3 center = *i;
+
+		// Loop over the points and find the maximum.
+		for (i = points.begin(); i != points.end(); i++)
+		{
+			center += *i;
+		}
+
+		// Average the vector.
+		float size = points.size();
+		center = center / size;
+
+		// Return the resulting vector.
+		return center;
+	}
+
+	/*
+	USAGE: Returns a vector that represents the maximum extent.
+	ARGUMENTS: std::vector<vector3> points -> Contains a set of vector3 points.
+	OUTPUT: Returns the maximum vector.
+	*/
+	vector3 MyOctant::FindMaximum(std::vector<vector3> points)
+	{
+		// Check size of the set.
+		if (points.empty()) { return ZERO_V3; }
+
+		// Create iterator for the set.
+		std::vector<vector3>::iterator i = points.begin();
+
+		// Create storage for result.
+		vector3 max = *i;
+
+		// Loop over the points and find the maximum.
+		for (i = points.begin(); i != points.end(); i++) 
+		{
+			vector3 value = *i;
+			if (max.x < value.x) { max.x = value.x; }
+			if (max.y < value.y) { max.y = value.y; }
+			if (max.z < value.z) { max.z = value.z; }
+		}
+
+		// Return the resulting vector.
+		return max;
+	}
+
+	/*
+	USAGE: Returns a vector that represents the minimum extent.
+	ARGUMENTS: std::vector<vector3> points -> Contains a set of vector3 points.
+	OUTPUT: Returns the minimum vector.
+	*/
+	vector3 MyOctant::FindMinimum(std::vector<vector3> points)
+	{
+		// Check size of the set.
+		if (points.empty()) { return ZERO_V3; }
+
+		// Create iterator for the set.
+		std::vector<vector3>::iterator i = points.begin();
+
+		// Create storage for result.
+		vector3 min = *i;
+
+		// Loop over the points and find the minimum.
+		for (i = points.begin(); i != points.end(); i++)
+		{
+			vector3 value = *i;
+			if (min.x > value.x) { min.x = value.x; }
+			if (min.y > value.y) { min.y = value.y; }
+			if (min.z > value.z) { min.z = value.z; }
+		}
+
+		// Return the resulting vector.
+		return min;
+	}
+
+#pragma endregion
+	
+} // namespace Simplex
+
+#endif

@@ -8,75 +8,56 @@
 #define __MY_OCTANT_H_
 
 #include "Definitions.h"
-#include "MyEntityManager.h"
 
 // Add to the Simplex namespace.
-namespace Simplex {
-	
-	// An Octant is a node in an Octree.
-	// Since we're tying this to spacial optimization, we should also be keeping track of the octant's bounds.
-	class MyOctant {
-		
-#pragma region //	Constants
+namespace Simplex 
+{	
 
-		// Default maximum subdivision limit.
-		const static uint DMAX_DEPTH = 2;
+#pragma region //	Forward Declarations
 
-		// Default maximum capacity value.
-		const static uint DMAX_CAPACITY = 5;
+	// Forward declaration of our MyEntityManager class.
+	class MyEntity;
 
-		// Default minimum size.
-		const static uint DMIN_SIZE = 5;
+	// Forward declaration of our MyEntityManager class.
+	class MyEntityManager;
 
-		// Default max processes.
-		const static uint DMAX_PROCESSES = 50;
+	// Forward declaration of our Octant class. (Remember to #include "MyOctree.h" in .cpp file).
+	class MyOctree;
 
 #pragma endregion
 
+	// An Octant is a node in an Octree.
+	class MyOctant {
+		
 #pragma region // 	Static Members
-
-		// Stores the number of octants that have been instantiated.
-		static uint sOctantCount;
-
-		// Stores the maximum level an octant is allowed to go.
-		static uint sDepthThreshold;
-
-		// Stores the ideal entity count.
-		static uint sEntityThreshold;
-
-		// Minimum octant dimension size.
-		static uint sMinimumSize;
-
-		// Maximum queue processes.
-		static uint sMaximumProcesses;
-
+		
 		/*
 		Usage: Sets the minimum size of all octants.
 		Arguments: uint a_uMinimumSize -> Input value to set.
 		Output: ---
 		*/
-		static void SetMinimumSize(uint a_uMinimumSize);
+		// static void SetMinimumSize(uint a_uMinimumSize);
 
 		/*
 		Usage: Sets the maximum subdivision level an octant can have.
 		Arguments: uint a_uDepthThreshold -> Input value to set.
 		Output: ---
 		*/
-		static void SetMaximumDepth(uint a_uDepthThreshold);
+		// static void SetMaximumDepth(uint a_uDepthThreshold);
 
 		/*
 		Usage: Sets the ideal entity count.
 		Arguments: uint m_uEntityThreshold -> Input value to set.
 		Output: ---
 		*/
-		static void SetMaximumCapacity(uint a_uEntityThreshold);
+		// static void SetMaximumCapacity(uint a_uEntityThreshold);
 
 		/*
 		Usage: Sets the maximum entity queue process count.
 		Arguments: uint a_uMaximumProcesses -> Input value to set.
 		Output: ---
 		*/
-		static void SetMaximumProcesses(uint a_uMaximumProcesses);
+		// static void SetMaximumProcesses(uint a_uMaximumProcesses);
 
 #pragma endregion
 
@@ -84,38 +65,51 @@ namespace Simplex {
 
 #pragma region // 	Fields
 
-		uint m_uID = 0;	// This octant's current ID.
-		uint m_uDepth = 0;	// The current subdivision level 
-		uint m_uChildCount = 0;	// Number of children in the octant.
-				
-		vector3 m_v3Active = C_YELLOW; // Active color (when the octant or its children contain entities).
-		vector3 m_v3Inactive = C_WHITE; // Inactive color (when the octant has no children and is empty).
+		// Values.
+		uint m_uID = -1; // Octant ID.
+		uint m_pOctreeID = -1; // Reference to the parent octree. (And therefore, the root).
+		float m_fSize = DMIN_SIZE; // Minimum size.
 
-		vector3 m_v3HalfWidths = ZERO_V3;	// Contains the half-widths for each of the three axes.
-		vector3 m_v3Center = ZERO_V3; // Stores the center point of the octant. (Global)
-		vector3 m_v3Minimum = ZERO_V3; // Stores the minimum vector of the octant. (Global)
-		vector3 m_v3Maximum = ZERO_V3; // Stores the maximum vector of the octant. (Global)
+		// Flags.
+		bool m_bEnabled = false; // Octant enabled. (Read on the root octant).
+		bool m_bVisible = false; // Visibility of the octant bounding box.
+
+		// Vectors.
+		matrix4 m_m4Translation = IDENTITY_M4; // The translation matrix. In most cases, this will not change.
+		vector3 m_v3Center = ZERO_V3; // The center translation vector, in global space.
+		vector3 m_v3Maximum = vector3(DMIN_SIZE / 2.0f); // The minimum extent vector, in global space.
+		vector3 m_v3Minimum = vector3(-DMIN_SIZE / 2.0f); // The minimum extent vector, in global space.
 		
-		// We use a set to take advantage of it's automatic handling of duplicates.		
-		std::set<uint> m_lEntities;  // List of entities contained within the octant.	
-		std::set<uint> m_lOctreeEntities; // List of all entities contained within the octree.
+		// Collection of child octants.
+		// std::set<uint> m_lOctantIDs; // TODO: Phase out so that we can just use the managed vector list directly.
 
-		// Reference to list of nodes that will contain objects.
-		std::vector<MyOctant*> m_lActiveChildren; 
+		// Collection of active child octants.
+		// std::set<uint> m_lActiveOctantIDs; // TODO: Turn this into a method.
 
-		bool m_bEnabled = true; // Octant enabled. (Read on the root octant).
-		bool m_bVisibleOBB = false; // Visibility of the octant bounding box.
-
+		// Collection of entity IDs, paired with this Octant.
+		std::set<uint> m_lEntityIDs;
+		
 #pragma endregion
 
 #pragma region // 	Memory Managed
 
-		MeshManager* m_pMeshManager = nullptr; // Mesh manager reference.
-		MyEntityManager* m_pEntityManager = nullptr; // Entity manager reference.		
-	
-		MyOctant* m_pParent = nullptr; // Parent octant.			
-		MyOctant* m_pRoot = nullptr; // Reference to the root octant.
-		MyOctant* m_pChild[8]; // Will store the children of the current octant.	
+		// Mesh manager reference.
+		MeshManager* m_pMeshMngr = nullptr;
+
+		// Entity manager reference.	
+		MyEntityManager* m_pEntityMngr = nullptr; 	
+
+		// Reference to children.
+		std::vector<MyOctant*> m_vChildren;
+
+		// Reference to parent.
+		MyOctant* m_pParent = nullptr;
+
+		// Reference to the root.
+		MyOctant* m_pRoot = nullptr;
+
+		// Reference to next sibling. (Useful for traversing through a collection of children).
+		MyOctant* m_pNextSibling = nullptr;
 
 #pragma endregion
 
@@ -151,6 +145,107 @@ namespace Simplex {
 
 #pragma endregion
 
+#pragma region // 	Private Mutator Methods
+
+		/*
+		Usage: Sets the octant ID.
+		Arguments: uint a_uID -> Octant ID to assign. If -1, gets ID based off of the octant count.
+		Output: ---
+		*/
+		void SetID(uint a_uID);
+
+		/*
+		Usage: Sets the octant depth level.
+		Arguments: uint a_uDepth -> Depth level to give the octant.
+		Output: ---
+		*/
+		void SetDepth(uint a_uDepth);
+
+		/*
+		USAGE: Sets this octant's size. (via half-width property).
+		ARGUMENTS: a_fSize -> Length of sides of the octant.
+		OUTPUT: ---
+		*/
+		void SetSize(float a_fSize);
+
+		/*
+		USAGE: Set the center of the octant in global space.
+		ARGUMENTS: a_v3Center -> Value to set center to.
+		OUTPUT: ---
+		*/
+		void SetCenterGlobal(vector3 a_v3Center);
+
+		/*
+		USAGE: Set the maximum vector in global space.
+		ARGUMENTS: a_v3Maximum -> Value to set maximum vector to.
+		OUTPUT: ---
+		*/
+		void SetMaxGlobal(vector3 a_v3Maximum);
+
+		/*
+		USAGE: Set the minimum vector in global space.
+		ARGUMENTS: a_v3Minimum -> Value to set minimum vector to.
+		OUTPUT: ---
+		*/
+		void SetMinGlobal(vector3 a_v3Minimum);
+
+		/*
+		USAGE: Sets the octant reference at the specified index to the input value (if possible).
+		ARGUMENTS:
+		- uint a_uChild -> index of the child [0, 7].
+		- MyOctant* const a_pChild -> pointer child to add.
+		OUTPUT: ---
+		*/
+		void SetChild(uint a_uChild, MyOctant* const a_pChild);
+
+		/*
+		USAGE: Sets the octant's parent.
+		ARGUMENTS: MyOctant* const a_pParent -> pointer parent to set.
+		OUTPUT: ---
+		*/
+		void SetParent(MyOctant* const a_pParent);
+		
+#pragma endregion
+
+#pragma region // 	Private Accessor Methods
+
+		/*
+		USAGE: Gets this octant's size.
+		ARGUMENTS: ---
+		OUTPUT: Returns the size of the octant as a float.
+		*/
+		float GetSize(void) const;
+
+		/*
+		USAGE: Get the center of the octant in global space.
+		ARGUMENTS: ---
+		OUTPUT: Returns a vector3.
+		*/
+		vector3 GetCenterGlobal(void) const;
+
+		/*
+		USAGE: Get the maximum vector in global space.
+		ARGUMENTS: ---
+		OUTPUT: Returns a vector3.
+		*/
+		vector3 GetMaxGlobal(void) const;
+
+		/*
+		USAGE: Get the minimum vector in global space.
+		ARGUMENTS: ---
+		OUTPUT: Returns a vector3.
+		*/
+		vector3 GetMinGlobal(void) const;
+
+		/*
+		USAGE: Returns the child at the specified index (if possible).
+		ARGUMENTS: uint a_uChild -> index of the child [0, 7].
+		OUTPUT: MyOctant object (child at index).
+		*/
+		MyOctant* GetChild(uint a_uChild) const;
+
+#pragma endregion
+
 	public:
 
 #pragma region // 	Constructor(s)
@@ -175,16 +270,6 @@ namespace Simplex {
 		*/
 		MyOctant(MyOctant* a_pParent, vector3 a_v3Center, float a_fSize);
 
-		/*
-		USAGE: Constructs an octant at a center point using varying sides.
-		ARGUMENTS:
-		- MyOctant* a_pParent -> Parent octant pointer.
-		- vector3 a_v3Center -> Center of the octant in global space.
-		- float a_v3HalfWidths -> Half size of each of the sides of the octant volume.
-		OUTPUT: class object.
-		*/
-		MyOctant(MyOctant* a_pParent, vector3 a_v3Center, vector3 a_v3HalfWidths);
-
 #pragma endregion
 
 #pragma region // 	Rule of Three
@@ -199,7 +284,7 @@ namespace Simplex {
 		/*
 		USAGE: Performs a deep copy of an existing octant. Keeps the ID.
 		ARGUMENTS: other -> class object to copy.
-		OUTPUT: ---
+		OUTPUT: class object reference.
 		*/
 		MyOctant& operator=(MyOctant const& other);
 
@@ -291,14 +376,7 @@ namespace Simplex {
 #pragma endregion
 
 #pragma region // 	Mutator Methods
-		
-		/*
-		Usage: Sets the octant ID.
-		Arguments: uint a_uID -> Octant ID to assign. If -1, gets ID based off of the octant count.
-		Output: ---
-		*/
-		void SetID(uint a_uID);
-
+				
 		/*
 		Usage: Sets visibility of octant OBB.
 		Arguments: bool a_bVisibleOBB -> Input value to set OBB visibility flag to.
@@ -313,64 +391,6 @@ namespace Simplex {
 		*/
 		void SetEnabled(bool a_bEnabled);
 		
-		/*
-		USAGE: Sets this octant's size. (via half-width property).
-		ARGUMENTS: a_fSize -> Length of sides of the octant.
-		OUTPUT: ---
-		*/
-		void SetSize(float a_fSize);
-
-		/*
-		USAGE: Sets this octant's half widths.
-		ARGUMENTS: a_v3HalfWidths -> Value to set half widths to.
-		OUTPUT: ---
-		*/
-		void SetHalfWidths(vector3 a_v3HalfWidths);
-
-		/*
-		USAGE: Set the center of the octant in global space.
-		ARGUMENTS: a_v3Center -> Value to set center to.
-		OUTPUT: ---
-		*/
-		void SetCenterGlobal(vector3 a_v3Center);
-
-		/*
-		USAGE: Set the maximum vector in global space.
-		ARGUMENTS: a_v3Maximum -> Value to set maximum vector to.
-		OUTPUT: ---
-		*/
-		void SetMaxGlobal(vector3 a_v3Maximum);
-
-		/*
-		USAGE: Set the minimum vector in global space.
-		ARGUMENTS: a_v3Minimum -> Value to set minimum vector to.
-		OUTPUT: ---
-		*/
-		void SetMinGlobal(vector3 a_v3Minimum);
-
-		/*
-		USAGE: Sets the octant reference at the specified index to the input value (if possible).
-		ARGUMENTS:
-		- uint a_uChild -> index of the child [0, 7].
-		- MyOctant* const a_pChild -> pointer child to add.
-		OUTPUT: ---
-		*/
-		void SetChild(uint a_uChild, MyOctant* const a_pChild);
-
-		/*
-		USAGE: Sets the octant's parent.
-		ARGUMENTS: MyOctant* const a_pParent -> pointer parent to set.
-		OUTPUT: ---
-		*/
-		void SetParent(MyOctant* const a_pParent);
-
-		/*
-		USAGE: Sets up reference to the root octant by traversing through the tree.
-		ARGUMENTS: ---
-		OUTPUT: ---
-		*/
-		void SetRoot(void);
-
 		/*
 		USAGE: Set the active color of the octant.
 		ARGUMENTS: vector3 a_v3Color -> Input color value to assign.
@@ -390,6 +410,20 @@ namespace Simplex {
 #pragma region // 	Accessor Methods
 
 		/*
+		USAGE: Gets the subdivision limit.
+		ARGUMENTS: ---
+		OUTPUT: Returns the subdivision limit.
+		*/
+		uint GetSubdivisionLimit(void);
+
+		/*
+		USAGE: Gets an octant by it's ID.
+		ARGUMENTS: a_uID -> ID for octant.
+		OUTPUT: Returns an octant pointer.
+		*/
+		void GetOctant(uint a_uID, MyOctant* o_pOctant);
+
+		/*
 		USAGE: Gets this octant's ID.
 		ARGUMENTS: ---
 		OUTPUT: Returns the ID of the octant.
@@ -397,46 +431,11 @@ namespace Simplex {
 		uint GetID(void) const;
 
 		/*
-		USAGE: Gets this octant's size.
+		USAGE: Gets this octant's depth.
 		ARGUMENTS: ---
-		OUTPUT: Returns the size of the octant as a float.
+		OUTPUT: Returns the depth level of the octant.
 		*/
-		float GetSize(void) const;
-		
-		/*
-		USAGE: Gets this octant's half widths.
-		ARGUMENTS: ---
-		OUTPUT: Returns the half widths of the octant as a vector3.
-		*/
-		vector3 GetHalfWidths(void) const;
-
-		/*
-		USAGE: Get the center of the octant in global space.
-		ARGUMENTS: ---
-		OUTPUT: Returns a vector3.
-		*/
-		vector3 GetCenterGlobal(void) const;
-
-		/*
-		USAGE: Get the maximum vector in global space.
-		ARGUMENTS: ---
-		OUTPUT: Returns a vector3.
-		*/
-		vector3 GetMaxGlobal(void) const;
-
-		/*
-		USAGE: Get the minimum vector in global space.
-		ARGUMENTS: ---
-		OUTPUT: Returns a vector3.
-		*/
-		vector3 GetMinGlobal(void) const;
-		
-		/*
-		USAGE: Returns the child at the specified index (if possible).
-		ARGUMENTS: uint a_uChild -> index of the child [0, 7].
-		OUTPUT: MyOctant object (child at index).
-		*/
-		MyOctant* GetChild(uint a_uChild) const;
+		uint MyOctant::GetDepth(void) const;
 
 		/*
 		USAGE: Returns the parent of this octant.
@@ -451,21 +450,7 @@ namespace Simplex {
 		OUTPUT: MyOctant object (root of this octant's octree).
 		*/
 		MyOctant& GetRoot(void);
-
-		/*
-		USAGE: Return the total number of octants in the world.
-		ARGUMENTS: ---
-		OUTPUT: ---
-		*/
-		uint GetOctantCount(void) const;
-
-		/*
-		USAGE: Return the number of entities within the octant.
-		ARGUMENTS: ---
-		OUTPUT: ---
-		*/
-		uint GetEntityCount(void) const;
-
+		
 		/*
 		USAGE: Get the active color of the octant.
 		ARGUMENTS: ---
@@ -480,10 +465,31 @@ namespace Simplex {
 		*/
 		vector3 GetInactiveColor(void) const;
 
+		/*
+		USAGE: Return the total number of octants in the world.
+		ARGUMENTS: ---
+		OUTPUT: ---
+		*/
+		uint GetOctantCount(void) const;
+
+		/*
+		USAGE: Return the number of entities within the octant.
+		ARGUMENTS: ---
+		OUTPUT: ---
+		*/
+		uint GetEntityCount(void) const;
+		
 #pragma endregion
 
 #pragma region // 	Service Methods
 		
+		/*
+		USAGE: Send the octree to a string.
+		ARGUMENTS: ---
+		OUTPUT: ---
+		*/
+		void ToString(void);
+
 		/*
 		USAGE: Adds a collection of entities to the tree.
 		ARGUMENTS: uint a_lIndices -> Indices of the entities to be added.
@@ -497,14 +503,7 @@ namespace Simplex {
 		OUTPUT: ---
 		*/
 		void AddEntity(uint a_uIndex);
-		
-		/*
-		USAGE: Adds entities from queue, updates min and max vectors, updates center, updates halfwidths, and clears the queue.
-		ARGUMENTS: ---
-		OUTPUT: ---
-		*/
-		void UpdateTree(void);
-		
+				
 		/*
 		USAGE: Display the MyOctant object, specified by index, including the objects underneath. (Used to display children).
 		ARGUMENTS:
@@ -549,27 +548,13 @@ namespace Simplex {
 		OUTPUT: ---
 		*/
 		void Subdivide(void);
-		
-		/*
-		USAGE: Recursively deletes all children (and children of children).
-		ARGUMENTS: ---
-		OUTPUT: ---
-		*/
-		void KillBranches(void);
-		
+				
 		/*
 		USAGE: Creates a tree using subdivisions, the max number of objects and levels.
 		ARGUMENTS: uint a_uSubdivisionThreshold -> Sets the maximum level of the tree it is constructing.
 		OUTPUT: ---
 		*/
 		void ConstructTree(uint a_uSubdivisionThreshold);
-
-		/*
-		USAGE: Creates a tree using global settings, with an input entities.
-		ARGUMENTS: std::set<uint> a_uEntities -> Set of entity IDs to construct the tree with.
-		OUTPUT: ---
-		*/
-		void ConstructTree(std::set<uint> a_uEntities);
 
 		/*
 		USAGE: Creates a tree using global settings.

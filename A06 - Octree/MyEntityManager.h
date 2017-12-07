@@ -3,7 +3,9 @@ Programmer: Alberto Bobadilla (labigm@gmail.com)
 Date: 2017/07
 ----------------------------------------------*/
 #ifndef __MYENTITYMANAGER_H_
-#define __MyENTITYMANAGER_H_
+#define __MYENTITYMANAGER_H_
+
+#include "Definitions.h"
 
 #include "MyEntity.h"
 
@@ -11,8 +13,7 @@ namespace Simplex
 {
 
 //System Class
-class MyEntityManager
-{
+class MyEntityManager {
 	typedef MyEntity* PEntity; //MyEntity Pointer
 	uint m_uEntityCount = 0; //number of elements in the list
 	PEntity* m_mEntityArray = nullptr; //array of MyEntity pointers
@@ -246,6 +247,18 @@ public:
 	OUTPUT: MyEntity count
 	*/
 	uint GetEntityCount(void);
+	/*
+	USAGE: Checks if the entity associated with the input index value exists.
+	ARGUMENTS: uint a_uIndex -> ID to check for.
+	OUTPUT: Returns true if it exists. Returns false for invalid inputs.
+	*/
+	bool Exists(uint a_uEntityID) const;
+	/*
+	USAGE: Checks if the entity associated with the input unique ID exists.
+	ARGUMENTS: String a_sUniqueID -> unique identifier of the entity queried
+	OUTPUT: Returns true if it exists. Returns false for invalid inputs.
+	*/
+	bool Exists(String a_sUniqueID) const;
 private:
 	/*
 	Usage: constructor

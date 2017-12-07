@@ -1,0 +1,48 @@
+Construct Tree; // Call from initialization method.
+
+ // Empties old tree.
+	// Clears children.
+	// Clears entity list.
+ // Calculates the new bounds.
+ // Sets Root's size, so collision detection will fire properly when all entities are added.
+ // Adds all entities from the manager to the octree.
+	// Subdivides as necessary.
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+OCTREE PSEUDOCODE:
+
+Main Loop [
+	Init Variables
+	Update
+	Display
+]
+
+Init Variables [
+	Octree Init:
+	1 Node.
+	No Entities.
+]
+
+Construct Tree [ // Builds a new octree, starting from the root.
+	// Clear the root's children. (Start with empty root).
+	// Encapsulate all entities from the EntityManager using the root node.
+		// Find center of all.
+		// Resize the octree.
+	// Add all entities in the root node to the octree itself.
+		// Subdivide.
+]

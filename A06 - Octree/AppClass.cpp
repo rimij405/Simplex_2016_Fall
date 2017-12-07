@@ -2,9 +2,6 @@
 using namespace Simplex;
 void Application::InitVariables(void)
 {
-	// Create the root.
-	// m_pOctree = new MyOctant();
-
 	//Set the position and target of the camera
 	m_pCameraMngr->SetPositionTargetAndUp(
 		vector3(0.0f, 0.0f, 100.0f), //Position
@@ -32,9 +29,20 @@ void Application::InitVariables(void)
 			m_pEntityMngr->SetModelMatrix(m4Position);
 		}
 	}
+
+	// Octant levels.
 	m_uOctantLevels = 1;
+	
+	// Initial update of entity manager.
 	m_pEntityMngr->Update();
+
+	// Create the root.
+	m_pRoot = new MyOctant(m_uOctantLevels);
+	m_pRoot->SetEnabled(true);
+	m_pRoot->SetOBBVisbile(true);
+	m_pRoot->ConstructTree(m_uOctantLevels);
 }
+
 void Application::Update(void)
 {
 	//Update the system so it knows how much time has passed since the last call
@@ -45,7 +53,7 @@ void Application::Update(void)
 
 	//Is the first person camera active?
 	CameraRotation();
-	
+			
 	//Update Entity Manager
 	m_pEntityMngr->Update();
 
@@ -56,12 +64,12 @@ void Application::Display(void)
 {
 	// Clear the screen
 	ClearScreen();
-
-	//display octree
-	//m_pRoot->Display();
-	
+		
 	// draw a skybox
 	m_pMeshMngr->AddSkyboxToRenderList();
+	
+	// Render
+	m_pRoot->DisplayLeafs();
 	
 	//render list call
 	m_uRenderCallCount = m_pMeshMngr->Render();
@@ -77,6 +85,9 @@ void Application::Display(void)
 }
 void Application::Release(void)
 {
+	// Delete the octree.
+	SafeDelete(m_pRoot);
+
 	//release GUI
 	ShutdownGUI();
 }
